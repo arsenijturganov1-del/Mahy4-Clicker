@@ -190,7 +190,11 @@
     80% { transform: translateX(4px); }
   }
 
-  .record-box {
+  .cat-wrap.locked .cat-btn {
+    filter: grayscale(0.6) brightness(0.85);
+    opacity: 0.75;
+    cursor: not-allowed;
+  }
     width: 100%;
     max-width: 420px;
     background: #ffffffcc;
@@ -414,6 +418,36 @@
   }
 
   catBtn.addEventListener("click", (e) => {
+    // 1) Ignore programmatic / synthetic clicks (most autoclicker scripts use these)
+    if (!e.isTrusted) return;
+
+    const now = Date.now();
+
+    // 2) While locked out for suspicious behavior, ignore taps silently
+    if (now < botLockUntil) return;
+
+    // 3) Hard rate limit — no human sustains faster than this
+    if (now - lastClickTime < MIN_CLICK_INTERVAL) return;
+
+    // 4) Track interval regularity — real taps have natural jitter,
+    //    autoclickers fire on a near-perfect fixed timer
+    if (lastClickTime > 0) {
+      const interval = now - lastClickTime;
+      clickIntervals.push(interval);
+      if (clickIntervals.length > SUSPICION_WINDOW) clickIntervals.shift();
+
+      if (clickIntervals.length === SUSPICION_WINDOW) {
+        const avg = clickIntervals.reduce((a, b) => a + b, 0) / clickIntervals.length;
+        const variance = clickIntervals.reduce((a, b) => a + Math.pow(b - avg, 2), 0) / clickIntervals.length;
+        const stddev = Math.sqrt(variance);
+        if (stddev < SUSPICION_STDDEV_THRESHOLD && avg < 400) {
+          triggerBotLock();
+          return;
+        }
+      }
+    }
+    lastClickTime = now;
+
     score += pointsPerClick;
     if (score > record) record = score;
     scoreEl.textContent = score;
@@ -432,6 +466,29 @@
     clearTimeout(saveTimeout);
     saveTimeout = setTimeout(saveScoreToLeaderboard, 500);
   });
+
+  // ------------------------------------------------------------------
+  // ANTI-AUTOCLICKER PROTECTION
+  // ------------------------------------------------------------------
+  let lastClickTime = 0;
+  let clickIntervals = [];
+  let botLockUntil = 0;
+  const MIN_CLICK_INTERVAL = 90;        // ms — caps sustained rate to ~11 clicks/sec
+  const SUSPICION_WINDOW = 10;          // how many recent intervals to analyze
+  const SUSPICION_STDDEV_THRESHOLD = 4; // ms — near-zero jitter looks robotic
+  const LOCK_DURATION = 4000;           // ms — cooldown once flagged
+
+  function triggerBotLock() {
+    botLockUntil = Date.now() + LOCK_DURATION;
+    clickIntervals = [];
+    catWrap.classList.add("locked");
+    catBtn.disabled = true;
+    if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred("error");
+    setTimeout(() => {
+      catWrap.classList.remove("locked");
+      catBtn.disabled = false;
+    }, LOCK_DURATION);
+  }
 
   function spawnClickAnimation(e) {
     // Bounce the cat
@@ -466,7 +523,8 @@
   // ------------------------------------------------------------------
   // UPGRADE LOGIC
   // ------------------------------------------------------------------
-  upgradeBtn.addEventListener("click", () => {
+  upgradeBtn.addEventListener("click", (e) => {
+    if (!e.isTrusted) return;
     const cost = upgradeCost();
     if (score < cost) {
       upgradeBtn.classList.remove("shake");
