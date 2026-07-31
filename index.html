@@ -6,7 +6,6 @@
 <title>Mahy4 Clicker</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
-<!-- Firebase (free cloud database, used only to store the leaderboard) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 
@@ -285,13 +284,6 @@
   </div>
 
 <script>
-  // ------------------------------------------------------------------
-  // 1) FIREBASE SETUP
-  // Replace the values below with your own Firebase project config.
-  // How to get them: console.firebase.google.com -> create a project ->
-  // Build -> Realtime Database -> Create Database (test mode) ->
-  // Project settings -> add a Web App -> copy the firebaseConfig object.
-  // ------------------------------------------------------------------
   const firebaseConfig = {
     apiKey: "AIzaSyCadhKMGJ0nc9fWuB5BsMEixTyXSTAmtnk",
     authDomain: "mahy4-clicker.firebaseapp.com",
@@ -310,9 +302,6 @@
     console.warn("Firebase not configured yet:", e);
   }
 
-  // ------------------------------------------------------------------
-  // 2) TELEGRAM USER INFO
-  // ------------------------------------------------------------------
   const tg = window.Telegram ? window.Telegram.WebApp : null;
   if (tg) tg.ready();
 
@@ -322,9 +311,6 @@
     ? (tgUser.username ? "@" + tgUser.username : [tgUser.first_name, tgUser.last_name].filter(Boolean).join(" "))
     : "Guest";
 
-  // ------------------------------------------------------------------
-  // 3) CLICKER LOGIC
-  // ------------------------------------------------------------------
   const scoreEl = document.getElementById("score");
   const recordEl = document.getElementById("record");
   const catBtn = document.getElementById("catBtn");
@@ -335,18 +321,28 @@
   const upgradeCostLabel = document.getElementById("upgradeCostLabel");
   const perClickLabel = document.getElementById("perClickLabel");
 
-  let score = parseInt(localStorage.getItem("mahy_score") || "0", 10);
-  let record = parseInt(localStorage.getItem("mahy_record") || "0", 10);
-  let upgradeLevel = parseInt(localStorage.getItem("mahy_level") || "0", 10);
-  let pointsPerClick = parseInt(localStorage.getItem("mahy_ppc") || "1", 10);
-  scoreEl.textContent = score;
-  recordEl.textContent = record;
+  let score = 0;
+  let record = 0;
+  let upgradeLevel = 0;
+  let pointsPerClick = 1;
+  let saveTimeout = null;
+  let audioCtx = null;
+  let lastClickTime = 0;
+  let clickIntervals = [];
+  let botLockUntil = 0;
+
+  const MIN_CLICK_INTERVAL = 90;
+  const SUSPICION_WINDOW = 10;
+  const SUSPICION_STDDEV_THRESHOLD = 4;
+  const LOCK_DURATION = 4000;
 
   function upgradeCost() {
     return Math.round(20 * Math.pow(1.55, upgradeLevel));
   }
 
-  function refreshUpgradeUI() {
+  function refreshUI() {
+    scoreEl.textContent = score;
+    recordEl.textContent = record;
     ppcValEl.textContent = pointsPerClick;
     perClickLabel.textContent = `+${pointsPerClick} per click`;
     upgradeCostLabel.textContent = `Cost: ${upgradeCost()}`;
@@ -356,14 +352,26 @@
       upgradeBtn.classList.remove("disabled");
     }
   }
-  refreshUpgradeUI();
 
-  let saveTimeout = null;
+  function setControlsEnabled(enabled) {
+    catBtn.disabled = !enabled;
+    upgradeBtn.disabled = !enabled;
+  }
 
-  // ------------------------------------------------------------------
-  // SOUND — a short synthesized "meow-click" blip, no audio file needed
-  // ------------------------------------------------------------------
-  let audioCtx = null;
+  function loadLocalFallback() {
+    score = parseInt(localStorage.getItem("mahy_score") || "0", 10);
+    record = parseInt(localStorage.getItem("mahy_record") || "0", 10);
+    upgradeLevel = parseInt(localStorage.getItem("mahy_level") || "0", 10);
+    pointsPerClick = parseInt(localStorage.getItem("mahy_ppc") || "1", 10);
+  }
+
+  function persistLocal() {
+    localStorage.setItem("mahy_score", score);
+    localStorage.setItem("mahy_record", record);
+    localStorage.setItem("mahy_level", upgradeLevel);
+    localStorage.setItem("mahy_ppc", pointsPerClick);
+  }
+
   function playClickSound() {
     try {
       if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -380,14 +388,12 @@
     } catch (e) {}
   }
 
-  // A cheerful "cha-ching" coin sound for successful upgrades
   function playPurchaseSound() {
     try {
       if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       const now = audioCtx.currentTime;
 
-      // Two quick bright coin "dings" (arpeggio up)
-      const dingFreqs = [1046.5, 1568.0]; // C6, G6
+      const dingFreqs = [1046.5, 1568.0];
       dingFreqs.forEach((freq, i) => {
         const start = now + i * 0.09;
         const osc = audioCtx.createOscillator();
@@ -402,12 +408,11 @@
         osc.stop(start + 0.36);
       });
 
-      // A soft sparkly shimmer on top
       const shimmer = audioCtx.createOscillator();
       const shimmerGain = audioCtx.createGain();
       shimmer.type = "sine";
-      shimmer.frequency.setValueAtTime(2093.0, now + 0.1); // C7
-      shimmer.frequency.exponentialRampToValueAtTime(2637.0, now + 0.3); // E7
+      shimmer.frequency.setValueAtTime(2093.0, now + 0.1);
+      shimmer.frequency.exponentialRampToValueAtTime(2637.0, now + 0.3);
       shimmerGain.gain.setValueAtTime(0.0001, now + 0.1);
       shimmerGain.gain.exponentialRampToValueAtTime(0.1, now + 0.13);
       shimmerGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.45);
@@ -417,20 +422,52 @@
     } catch (e) {}
   }
 
+  function triggerBotLock() {
+    botLockUntil = Date.now() + LOCK_DURATION;
+    clickIntervals = [];
+    catWrap.classList.add("locked");
+    catBtn.disabled = true;
+    if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred("error");
+    setTimeout(() => {
+      catWrap.classList.remove("locked");
+      catBtn.disabled = false;
+    }, LOCK_DURATION);
+  }
+
+  function spawnClickAnimation(e) {
+    catBtn.classList.remove("pop");
+    void catBtn.offsetWidth;
+    catBtn.classList.add("pop");
+
+    const ring = document.createElement("div");
+    ring.className = "ring-pulse";
+    catWrap.appendChild(ring);
+    ring.addEventListener("animationend", () => ring.remove());
+
+    const rect = catBtn.getBoundingClientRect();
+    let x = rect.width / 2;
+    let y = rect.height / 2;
+    if (e && e.clientX) {
+      x = e.clientX - rect.left;
+      y = e.clientY - rect.top;
+    }
+    const pts = document.createElement("div");
+    pts.className = "float-pts";
+    pts.textContent = "+" + pointsPerClick;
+    pts.style.left = x + "px";
+    pts.style.top = y + "px";
+    pts.style.setProperty("--dx", (Math.random() * 40 - 20) + "px");
+    catWrap.appendChild(pts);
+    pts.addEventListener("animationend", () => pts.remove());
+  }
+
   catBtn.addEventListener("click", (e) => {
-    // 1) Ignore programmatic / synthetic clicks (most autoclicker scripts use these)
     if (!e.isTrusted) return;
 
     const now = Date.now();
-
-    // 2) While locked out for suspicious behavior, ignore taps silently
     if (now < botLockUntil) return;
-
-    // 3) Hard rate limit — no human sustains faster than this
     if (now - lastClickTime < MIN_CLICK_INTERVAL) return;
 
-    // 4) Track interval regularity — real taps have natural jitter,
-    //    autoclickers fire on a near-perfect fixed timer
     if (lastClickTime > 0) {
       const interval = now - lastClickTime;
       clickIntervals.push(interval);
@@ -450,79 +487,18 @@
 
     score += pointsPerClick;
     if (score > record) record = score;
-    scoreEl.textContent = score;
-    recordEl.textContent = record;
 
     playClickSound();
     spawnClickAnimation(e);
-    refreshUpgradeUI();
-
-    localStorage.setItem("mahy_score", score);
-    localStorage.setItem("mahy_record", record);
+    refreshUI();
+    persistLocal();
 
     if (tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred("light");
 
-    // Debounce writes to the database so we are not spamming it on every click
     clearTimeout(saveTimeout);
     saveTimeout = setTimeout(saveScoreToLeaderboard, 500);
   });
 
-  // ------------------------------------------------------------------
-  // ANTI-AUTOCLICKER PROTECTION
-  // ------------------------------------------------------------------
-  let lastClickTime = 0;
-  let clickIntervals = [];
-  let botLockUntil = 0;
-  const MIN_CLICK_INTERVAL = 90;        // ms — caps sustained rate to ~11 clicks/sec
-  const SUSPICION_WINDOW = 10;          // how many recent intervals to analyze
-  const SUSPICION_STDDEV_THRESHOLD = 4; // ms — near-zero jitter looks robotic
-  const LOCK_DURATION = 4000;           // ms — cooldown once flagged
-
-  function triggerBotLock() {
-    botLockUntil = Date.now() + LOCK_DURATION;
-    clickIntervals = [];
-    catWrap.classList.add("locked");
-    catBtn.disabled = true;
-    if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred("error");
-    setTimeout(() => {
-      catWrap.classList.remove("locked");
-      catBtn.disabled = false;
-    }, LOCK_DURATION);
-  }
-
-  function spawnClickAnimation(e) {
-    // Bounce the cat
-    catBtn.classList.remove("pop");
-    void catBtn.offsetWidth; // restart animation
-    catBtn.classList.add("pop");
-
-    // Expanding ring pulse
-    const ring = document.createElement("div");
-    ring.className = "ring-pulse";
-    catWrap.appendChild(ring);
-    ring.addEventListener("animationend", () => ring.remove());
-
-    // Floating "+N" text near the tap position
-    const rect = catBtn.getBoundingClientRect();
-    let x = rect.width / 2;
-    let y = rect.height / 2;
-    if (e && e.clientX) {
-      x = e.clientX - rect.left;
-      y = e.clientY - rect.top;
-    }
-    const pts = document.createElement("div");
-    pts.className = "float-pts";
-    pts.textContent = "+" + pointsPerClick;
-    pts.style.left = x + "px";
-    pts.style.top = y + "px";
-    pts.style.setProperty("--dx", (Math.random() * 40 - 20) + "px");
-    catWrap.appendChild(pts);
-    pts.addEventListener("animationend", () => pts.remove());
-  }
-
-  // ------------------------------------------------------------------
-  // UPGRADE LOGIC
-  // ------------------------------------------------------------------
   upgradeBtn.addEventListener("click", (e) => {
     if (!e.isTrusted) return;
     const cost = upgradeCost();
@@ -536,14 +512,9 @@
     score -= cost;
     upgradeLevel++;
     pointsPerClick++;
-    scoreEl.textContent = score;
 
-    localStorage.setItem("mahy_score", score);
-    localStorage.setItem("mahy_level", upgradeLevel);
-    localStorage.setItem("mahy_ppc", pointsPerClick);
-
-    refreshUpgradeUI();
-
+    refreshUI();
+    persistLocal();
     playPurchaseSound();
 
     clearTimeout(saveTimeout);
@@ -561,6 +532,9 @@
     db.ref("leaderboard/" + userId).set({
       name: userName,
       score: score,
+      record: record,
+      ppc: pointsPerClick,
+      level: upgradeLevel,
       updatedAt: Date.now()
     });
   }
@@ -599,9 +573,33 @@
     });
   }
 
+  async function initPlayer() {
+    setControlsEnabled(false);
+    loadLocalFallback();
+
+    if (db) {
+      try {
+        const snap = await db.ref("leaderboard/" + userId).once("value");
+        const data = snap.val();
+        if (data) {
+          score = typeof data.score === "number" ? data.score : score;
+          record = typeof data.record === "number" ? data.record : Math.max(record, score);
+          pointsPerClick = typeof data.ppc === "number" ? data.ppc : pointsPerClick;
+          upgradeLevel = typeof data.level === "number" ? data.level : upgradeLevel;
+          persistLocal();
+        }
+      } catch (e) {
+        console.warn("Could not load cloud save:", e);
+      }
+    }
+
+    refreshUI();
+    setControlsEnabled(true);
+    saveScoreToLeaderboard();
+  }
+
   listenToLeaderboard();
-  // Save the score once on load too, so first-time visitors appear on the board
-  if (score > 0) saveScoreToLeaderboard();
+  initPlayer();
 </script>
 </body>
 </html>
