@@ -346,6 +346,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
+    flex-wrap: wrap;
     gap: 10px;
     padding: 10px 0;
     border-bottom: 1px solid #eee2fb;
@@ -353,6 +354,28 @@
   .admin-row:last-child { border-bottom: none; }
   .admin-row-name { font-weight: 700; font-size: 14px; color: #2c2440; }
   .admin-row-meta { font-size: 12px; color: #9a8bc0; margin-top: 2px; }
+  .admin-row-actions { display: flex; align-items: center; gap: 6px; }
+  .admin-add-input {
+    width: 70px;
+    border: 1px solid #eee2fb;
+    border-radius: 10px;
+    padding: 8px 8px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #2c2440;
+    text-align: center;
+  }
+  .admin-add-btn {
+    border: none;
+    border-radius: 10px;
+    padding: 8px 12px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #fff;
+    background: #4caf82;
+    cursor: pointer;
+    white-space: nowrap;
+  }
   .admin-reset-btn {
     border: none;
     border-radius: 10px;
@@ -794,9 +817,29 @@
             <div class="admin-row-name">${escapeHtml(e.name || "Unknown")}</div>
             <div class="admin-row-meta">ID: ${escapeHtml(e.id)} · Score: ${e.score || 0} · Power: ${e.ppc || 1}</div>
           </div>
-          <button class="admin-reset-btn">Reset</button>
+          <div class="admin-row-actions">
+            <input class="admin-add-input" type="number" placeholder="0">
+            <button class="admin-add-btn">Add</button>
+            <button class="admin-reset-btn">Reset</button>
+          </div>
         </div>
       `).join("");
+
+      adminList.querySelectorAll(".admin-add-btn").forEach((btn) => {
+        btn.addEventListener("click", (ev) => {
+          const row = ev.target.closest(".admin-row");
+          const id = row.dataset.id;
+          const input = row.querySelector(".admin-add-input");
+          const amount = parseInt(input.value, 10);
+          if (!Number.isFinite(amount) || amount === 0) return;
+          db.ref("leaderboard/" + id).once("value").then((snap) => {
+            const data = snap.val() || {};
+            const newScore = (data.score || 0) + amount;
+            const newRecord = Math.max(data.record || 0, newScore);
+            db.ref("leaderboard/" + id).update({ score: newScore, record: newRecord }).then(loadAdminList);
+          });
+        });
+      });
 
       adminList.querySelectorAll(".admin-reset-btn").forEach((btn) => {
         btn.addEventListener("click", (ev) => {
