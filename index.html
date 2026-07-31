@@ -194,6 +194,8 @@
     opacity: 0.75;
     cursor: not-allowed;
   }
+
+  .record-box {
     width: 100%;
     max-width: 420px;
     background: #ffffffcc;
@@ -251,6 +253,117 @@
   .lb-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .lb-score { color: #6b5b95; }
   .lb-empty { text-align: center; color: #9a8bc0; font-size: 14px; padding: 8px 0; }
+
+  .account-box {
+    width: 100%;
+    max-width: 420px;
+    background: #ffffffcc;
+    border-radius: 16px;
+    padding: 14px 20px;
+    margin-top: 16px;
+    display: none;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.06);
+    gap: 12px;
+  }
+  .account-id { font-size: 13px; color: #6b5b95; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .account-btn {
+    border: none;
+    border-radius: 12px;
+    padding: 10px 16px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #6f4fe8;
+    background: #eee2fb;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .admin-toggle {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: none;
+    background: #2c2440;
+    color: #fff;
+    font-size: 20px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.3);
+    z-index: 200;
+  }
+
+  .admin-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(20, 12, 40, 0.55);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    z-index: 300;
+  }
+  .admin-panel {
+    width: 100%;
+    max-width: 460px;
+    max-height: 80vh;
+    background: #fff;
+    border-radius: 20px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .admin-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+    font-weight: 800;
+    font-size: 16px;
+    color: #2c2440;
+  }
+  .admin-header button {
+    border: none;
+    background: #eee2fb;
+    color: #6f4fe8;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    font-weight: 800;
+    cursor: pointer;
+  }
+  .admin-list {
+    overflow-y: auto;
+  }
+  .admin-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid #eee2fb;
+  }
+  .admin-row:last-child { border-bottom: none; }
+  .admin-row-name { font-weight: 700; font-size: 14px; color: #2c2440; }
+  .admin-row-meta { font-size: 12px; color: #9a8bc0; margin-top: 2px; }
+  .admin-reset-btn {
+    border: none;
+    border-radius: 10px;
+    padding: 8px 12px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #fff;
+    background: #ff5b5b;
+    cursor: pointer;
+    white-space: nowrap;
+  }
 </style>
 </head>
 <body>
@@ -283,6 +396,22 @@
     <div id="lbList"><div class="lb-empty">Loading...</div></div>
   </div>
 
+  <div class="account-box" id="accountBox">
+    <span class="account-id" id="accountIdLabel"></span>
+    <button class="account-btn" id="changeIdBtn">Change ID</button>
+  </div>
+
+  <button class="admin-toggle" id="adminToggle">⚙</button>
+  <div class="admin-overlay" id="adminOverlay">
+    <div class="admin-panel">
+      <div class="admin-header">
+        <span>Admin panel</span>
+        <button id="adminClose">✕</button>
+      </div>
+      <div class="admin-list" id="adminList"></div>
+    </div>
+  </div>
+
 <script>
   const firebaseConfig = {
     apiKey: "AIzaSyCadhKMGJ0nc9fWuB5BsMEixTyXSTAmtnk",
@@ -305,11 +434,23 @@
   const tg = window.Telegram ? window.Telegram.WebApp : null;
   if (tg) tg.ready();
 
+  function getStoredGuestId() {
+    let id = localStorage.getItem("mahy_account_id");
+    if (!id) {
+      id = "guest_" + Math.random().toString(36).slice(2, 10);
+      localStorage.setItem("mahy_account_id", id);
+    }
+    return id;
+  }
+
   const tgUser = tg && tg.initDataUnsafe && tg.initDataUnsafe.user ? tg.initDataUnsafe.user : null;
-  const userId = tgUser ? String(tgUser.id) : "guest_" + Math.random().toString(36).slice(2, 10);
+  const userId = tgUser ? String(tgUser.id) : getStoredGuestId();
   const userName = tgUser
     ? (tgUser.username ? "@" + tgUser.username : [tgUser.first_name, tgUser.last_name].filter(Boolean).join(" "))
     : "Guest";
+
+  const ADMIN_IDS = ["7918319938", "7815477305"];
+  const isAdmin = ADMIN_IDS.includes(userId);
 
   const scoreEl = document.getElementById("score");
   const recordEl = document.getElementById("record");
@@ -320,6 +461,13 @@
   const ppcValEl = document.getElementById("ppcVal");
   const upgradeCostLabel = document.getElementById("upgradeCostLabel");
   const perClickLabel = document.getElementById("perClickLabel");
+  const accountBox = document.getElementById("accountBox");
+  const accountIdLabel = document.getElementById("accountIdLabel");
+  const changeIdBtn = document.getElementById("changeIdBtn");
+  const adminToggle = document.getElementById("adminToggle");
+  const adminOverlay = document.getElementById("adminOverlay");
+  const adminClose = document.getElementById("adminClose");
+  const adminList = document.getElementById("adminList");
 
   let score = 0;
   let record = 0;
@@ -597,6 +745,73 @@
     setControlsEnabled(true);
     saveScoreToLeaderboard();
   }
+
+  function setupAccountBox() {
+    if (tgUser) return;
+    accountBox.style.display = "flex";
+    accountIdLabel.textContent = "ID: " + userId;
+    changeIdBtn.addEventListener("click", () => {
+      const input = prompt("Enter your sync ID (use the same ID on another device to share balance):", userId);
+      if (input && input.trim() && input.trim() !== userId) {
+        localStorage.setItem("mahy_account_id", input.trim());
+        location.reload();
+      }
+    });
+  }
+
+  function setupAdminPanel() {
+    if (!isAdmin) return;
+    adminToggle.style.display = "flex";
+    adminToggle.addEventListener("click", () => {
+      adminOverlay.style.display = "flex";
+      loadAdminList();
+    });
+    adminClose.addEventListener("click", () => {
+      adminOverlay.style.display = "none";
+    });
+    adminOverlay.addEventListener("click", (e) => {
+      if (e.target === adminOverlay) adminOverlay.style.display = "none";
+    });
+  }
+
+  function loadAdminList() {
+    if (!db) return;
+    adminList.innerHTML = '<div class="lb-empty">Loading...</div>';
+    db.ref("leaderboard").once("value").then((snap) => {
+      const val = snap.val() || {};
+      const entries = Object.entries(val)
+        .map(([id, d]) => ({ id, ...d }))
+        .sort((a, b) => (b.score || 0) - (a.score || 0));
+
+      if (!entries.length) {
+        adminList.innerHTML = '<div class="lb-empty">No players yet</div>';
+        return;
+      }
+
+      adminList.innerHTML = entries.map((e) => `
+        <div class="admin-row" data-id="${escapeHtml(e.id)}">
+          <div>
+            <div class="admin-row-name">${escapeHtml(e.name || "Unknown")}</div>
+            <div class="admin-row-meta">ID: ${escapeHtml(e.id)} · Score: ${e.score || 0} · Power: ${e.ppc || 1}</div>
+          </div>
+          <button class="admin-reset-btn">Reset</button>
+        </div>
+      `).join("");
+
+      adminList.querySelectorAll(".admin-reset-btn").forEach((btn) => {
+        btn.addEventListener("click", (ev) => {
+          const row = ev.target.closest(".admin-row");
+          const id = row.dataset.id;
+          if (confirm("Reset this player's score to 0?")) {
+            db.ref("leaderboard/" + id).update({ score: 0, record: 0, ppc: 1, level: 0 }).then(loadAdminList);
+          }
+        });
+      });
+    });
+  }
+
+  setupAccountBox();
+  setupAdminPanel();
 
   listenToLeaderboard();
   initPlayer();
