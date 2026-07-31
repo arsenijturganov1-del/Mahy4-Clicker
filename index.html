@@ -707,6 +707,8 @@
       ppc: pointsPerClick,
       level: upgradeLevel,
       updatedAt: Date.now()
+    }).catch((err) => {
+      console.error("Save to Firebase failed:", err);
     });
   }
 
@@ -744,29 +746,37 @@
     });
   }
 
-  async function initPlayer() {
-    setControlsEnabled(false);
-    loadLocalFallback();
-
-    if (db) {
-      try {
-        const snap = await db.ref("leaderboard/" + userId).once("value");
-        const data = snap.val();
-        if (data) {
-          score = typeof data.score === "number" ? data.score : score;
-          record = typeof data.record === "number" ? data.record : Math.max(record, score);
-          pointsPerClick = typeof data.ppc === "number" ? data.ppc : pointsPerClick;
-          upgradeLevel = typeof data.level === "number" ? data.level : upgradeLevel;
-          persistLocal();
-        }
-      } catch (e) {
-        console.warn("Could not load cloud save:", e);
-      }
+  function listenToOwnData() {
+    if (!db) {
+      refreshUI();
+      setControlsEnabled(true);
+      return;
     }
+    db.ref("leaderboard/" + userId).on("value", (snap) => {
+      if (snap.exists()) {
+        const data = snap.val();
+        score = typeof data.score === "number" ? data.score : score;
+        record = typeof data.record === "number" ? data.record : Math.max(record, score);
+        pointsPerClick = typeof data.ppc === "number" ? data.ppc : pointsPerClick;
+        upgradeLevel = typeof data.level === "number" ? data.level : upgradeLevel;
+        persistLocal();
+      } else {
+        saveScoreToLeaderboard();
+      }
+      refreshUI();
+      setControlsEnabled(true);
+    }, (err) => {
+      console.error("Firebase sync failed:", err);
+      refreshUI();
+      setControlsEnabled(true);
+    });
+  }
 
+  function initPlayer() {
+    loadLocalFallback();
     refreshUI();
-    setControlsEnabled(true);
-    saveScoreToLeaderboard();
+    setControlsEnabled(false);
+    listenToOwnData();
   }
 
   function setupAccountBox() {
@@ -836,7 +846,15 @@
             const data = snap.val() || {};
             const newScore = (data.score || 0) + amount;
             const newRecord = Math.max(data.record || 0, newScore);
-            db.ref("leaderboard/" + id).update({ score: newScore, record: newRecord }).then(loadAdminList);
+            db.ref("leaderboard/" + id).update({ score: newScore, record: newRecord })
+              .then(loadAdminList)
+              .catch((err) => {
+                console.error("Admin add balance failed:", err);
+                alert("Failed to save: " + err.message);
+              });
+          }).catch((err) => {
+            console.error("Admin read failed:", err);
+            alert("Failed to read player data: " + err.message);
           });
         });
       });
@@ -846,7 +864,12 @@
           const row = ev.target.closest(".admin-row");
           const id = row.dataset.id;
           if (confirm("Reset this player's score to 0?")) {
-            db.ref("leaderboard/" + id).update({ score: 0, record: 0, ppc: 1, level: 0 }).then(loadAdminList);
+            db.ref("leaderboard/" + id).update({ score: 0, record: 0, ppc: 1, level: 0 })
+              .then(loadAdminList)
+              .catch((err) => {
+                console.error("Admin reset failed:", err);
+                alert("Failed to save: " + err.message);
+              });
           }
         });
       });
