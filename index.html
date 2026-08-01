@@ -274,6 +274,36 @@
   .lb-score { color: #6b5b95; }
   .lb-empty { text-align: center; color: #9a8bc0; font-size: 14px; padding: 8px 0; }
 
+  .about-btn {
+    margin-top: 14px;
+    border: none;
+    border-radius: 30px;
+    padding: 10px 22px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #6f4fe8;
+    background: #eee2fb;
+    cursor: pointer;
+  }
+  .about-btn:active { transform: scale(0.96); }
+
+  .about-links {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .about-links a {
+    display: block;
+    background: #f7f2ff;
+    border-radius: 12px;
+    padding: 14px 16px;
+    font-weight: 700;
+    font-size: 14px;
+    color: #2c2440;
+    text-decoration: none;
+  }
+  .about-links a:active { background: #eee2fb; }
+
   .admin-toggle {
     position: fixed;
     top: 16px;
@@ -323,12 +353,39 @@
     font-size: 16px;
     color: #2c2440;
   }
-  .admin-header button {
+  .admin-header-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    overflow: hidden;
+  }
+  .admin-header-left span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .admin-back-btn {
     border: none;
     background: #eee2fb;
     color: #6f4fe8;
     width: 30px;
     height: 30px;
+    min-width: 30px;
+    border-radius: 50%;
+    font-weight: 800;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+  }
+  .admin-header button#adminClose {
+    border: none;
+    background: #eee2fb;
+    color: #6f4fe8;
+    width: 30px;
+    height: 30px;
+    min-width: 30px;
     border-radius: 50%;
     font-weight: 800;
     cursor: pointer;
@@ -336,6 +393,45 @@
   .admin-list {
     overflow-y: auto;
   }
+  .admin-name-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 4px;
+    font-weight: 700;
+    font-size: 15px;
+    color: #2c2440;
+    border-bottom: 1px solid #eee2fb;
+    cursor: pointer;
+  }
+  .admin-name-row:last-child { border-bottom: none; }
+  .admin-name-row:active { background: #f7f2ff; }
+  .admin-name-arrow { color: #9a8bc0; font-size: 18px; }
+
+  .admin-detail-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    background: #f7f2ff;
+    border-radius: 12px;
+    padding: 12px 14px;
+    margin-bottom: 18px;
+    font-size: 13px;
+    color: #6b5b95;
+    font-weight: 600;
+  }
+  .admin-detail-stats b { color: #2c2440; }
+  .admin-detail-section { margin-bottom: 18px; }
+  .admin-detail-section:last-child { margin-bottom: 4px; }
+  .admin-detail-label {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #9a8bc0;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+  .admin-reset-full { width: 100%; }
   .admin-row {
     display: flex;
     justify-content: space-between;
@@ -421,11 +517,30 @@
     <div id="lbList"><div class="lb-empty">Loading...</div></div>
   </div>
 
+  <button class="about-btn" id="aboutToggle">ℹ️ О нас</button>
+
+  <div class="admin-overlay" id="aboutOverlay">
+    <div class="admin-panel">
+      <div class="admin-header">
+        <div class="admin-header-left"><span>О нас</span></div>
+        <button id="aboutClose">✕</button>
+      </div>
+      <div class="about-links">
+        <a href="https://www.tiktok.com/@mahy4059?_r=1&_t=ZS-98WFUYlQilL" target="_blank" rel="noopener" id="aboutTiktok">🎵 Тикток</a>
+        <a href="https://www.youtube.com/@MahyClickerBot" target="_blank" rel="noopener" id="aboutYoutube">▶️ Ютуб</a>
+        <a href="https://t.me/Mahy4ClickerChannel" target="_blank" rel="noopener" id="aboutTelegram">✈️ Тг канал</a>
+      </div>
+    </div>
+  </div>
+
   <button class="admin-toggle" id="adminToggle">⚙</button>
   <div class="admin-overlay" id="adminOverlay">
     <div class="admin-panel">
       <div class="admin-header">
-        <span>Admin panel</span>
+        <div class="admin-header-left">
+          <button class="admin-back-btn" id="adminBackBtn" style="display: none;">←</button>
+          <span id="adminHeaderTitle">Admin panel</span>
+        </div>
         <button id="adminClose">✕</button>
       </div>
       <div class="admin-list" id="adminList"></div>
@@ -488,6 +603,11 @@
   const adminOverlay = document.getElementById("adminOverlay");
   const adminClose = document.getElementById("adminClose");
   const adminList = document.getElementById("adminList");
+  const adminBackBtn = document.getElementById("adminBackBtn");
+  const adminHeaderTitle = document.getElementById("adminHeaderTitle");
+  const aboutToggle = document.getElementById("aboutToggle");
+  const aboutOverlay = document.getElementById("aboutOverlay");
+  const aboutClose = document.getElementById("aboutClose");
 
   let score = 0;
   let record = 0;
@@ -957,6 +1077,134 @@
     scoreEl.addEventListener("pointercancel", cancelPress);
   }
 
+  let adminEntries = [];
+
+  function loadAdminList() {
+    if (!db) return;
+    adminList.innerHTML = '<div class="lb-empty">Loading...</div>';
+    db.ref("leaderboard").once("value").then((snap) => {
+      const val = snap.val() || {};
+      adminEntries = Object.entries(val)
+        .map(([id, d]) => ({ id, ...d }))
+        .sort((a, b) => (b.score || 0) - (a.score || 0));
+      renderAdminList();
+    }).catch((err) => {
+      console.error("Admin list load failed:", err);
+      adminList.innerHTML = '<div class="lb-empty">Failed to load</div>';
+    });
+  }
+
+  function renderAdminList() {
+    adminHeaderTitle.textContent = "Admin panel";
+    adminBackBtn.style.display = "none";
+
+    if (!adminEntries.length) {
+      adminList.innerHTML = '<div class="lb-empty">No players yet</div>';
+      return;
+    }
+
+    adminList.innerHTML = adminEntries.map((e) => `
+      <div class="admin-name-row" data-id="${escapeHtml(e.id)}">
+        <span>${escapeHtml(e.name || "Unknown")}</span>
+        <span class="admin-name-arrow">›</span>
+      </div>
+    `).join("");
+
+    adminList.querySelectorAll(".admin-name-row").forEach((row) => {
+      row.addEventListener("click", () => renderAdminDetail(row.dataset.id));
+    });
+  }
+
+  function renderAdminDetail(id) {
+    const entry = adminEntries.find((e) => e.id === id);
+    if (!entry) return;
+
+    adminHeaderTitle.textContent = entry.name || "Unknown";
+    adminBackBtn.style.display = "flex";
+
+    adminList.innerHTML = `
+      <div class="admin-detail-stats">
+        <div>Score: <b>${entry.score || 0}</b></div>
+        <div>Record: <b>${entry.record || 0}</b></div>
+        <div>Click power: <b>${entry.ppc || 1}</b></div>
+        <div>Rebirths: <b>${entry.rebirths || 0}</b></div>
+      </div>
+      <div class="admin-detail-section">
+        <div class="admin-detail-label">Изменить очки (+ выдать / − снять)</div>
+        <div class="admin-row-actions">
+          <input class="admin-add-input" type="number" placeholder="±0" id="adminScoreInput">
+          <button class="admin-add-btn" id="adminScoreApply">Применить</button>
+        </div>
+      </div>
+      <div class="admin-detail-section">
+        <div class="admin-detail-label">Ребёртхи</div>
+        <div class="admin-row-actions">
+          <button class="admin-add-btn" id="adminRebirthAdd">+1 выдать</button>
+          <button class="admin-reset-btn" id="adminRebirthRemove">−1 снять</button>
+        </div>
+      </div>
+      <div class="admin-detail-section">
+        <button class="admin-reset-btn admin-reset-full" id="adminResetFull">Сбросить полностью</button>
+      </div>
+    `;
+
+    document.getElementById("adminScoreApply").addEventListener("click", () => {
+      const input = document.getElementById("adminScoreInput");
+      const amount = parseInt(input.value, 10);
+      if (!Number.isFinite(amount) || amount === 0) return;
+      db.ref("leaderboard/" + id).once("value").then((snap) => {
+        const data = snap.val() || {};
+        const newScore = Math.max(0, (data.score || 0) + amount);
+        const newRecord = Math.max(data.record || 0, newScore);
+        return db.ref("leaderboard/" + id).update({ score: newScore, record: newRecord });
+      }).then(() => refreshAdminDetail(id)).catch((err) => {
+        console.error("Admin score change failed:", err);
+        alert("Failed to save: " + err.message);
+      });
+    });
+
+    document.getElementById("adminRebirthAdd").addEventListener("click", () => {
+      db.ref("leaderboard/" + id).once("value").then((snap) => {
+        const data = snap.val() || {};
+        const newRebirths = (data.rebirths || 0) + 1;
+        return db.ref("leaderboard/" + id).update({ rebirths: newRebirths });
+      }).then(() => refreshAdminDetail(id)).catch((err) => {
+        console.error("Admin rebirth add failed:", err);
+        alert("Failed to save: " + err.message);
+      });
+    });
+
+    document.getElementById("adminRebirthRemove").addEventListener("click", () => {
+      db.ref("leaderboard/" + id).once("value").then((snap) => {
+        const data = snap.val() || {};
+        const newRebirths = Math.max(0, (data.rebirths || 0) - 1);
+        return db.ref("leaderboard/" + id).update({ rebirths: newRebirths });
+      }).then(() => refreshAdminDetail(id)).catch((err) => {
+        console.error("Admin rebirth remove failed:", err);
+        alert("Failed to save: " + err.message);
+      });
+    });
+
+    document.getElementById("adminResetFull").addEventListener("click", () => {
+      if (!confirm("Reset this player's score, level and rebirths to 0?")) return;
+      db.ref("leaderboard/" + id).update({ score: 0, record: 0, ppc: 1, level: 0, rebirths: 0 })
+        .then(() => refreshAdminDetail(id))
+        .catch((err) => {
+          console.error("Admin reset failed:", err);
+          alert("Failed to save: " + err.message);
+        });
+    });
+  }
+
+  function refreshAdminDetail(id) {
+    db.ref("leaderboard/" + id).once("value").then((snap) => {
+      const data = snap.val() || {};
+      const idx = adminEntries.findIndex((e) => e.id === id);
+      if (idx >= 0) adminEntries[idx] = { id, ...data };
+      renderAdminDetail(id);
+    }).catch((err) => console.error("Admin detail refresh failed:", err));
+  }
+
   function setupAdminPanel() {
     if (!isAdmin) return;
     adminToggle.style.display = "flex";
@@ -970,79 +1218,42 @@
     adminOverlay.addEventListener("click", (e) => {
       if (e.target === adminOverlay) adminOverlay.style.display = "none";
     });
+    adminBackBtn.addEventListener("click", renderAdminList);
   }
 
-  function loadAdminList() {
-    if (!db) return;
-    adminList.innerHTML = '<div class="lb-empty">Loading...</div>';
-    db.ref("leaderboard").once("value").then((snap) => {
-      const val = snap.val() || {};
-      const entries = Object.entries(val)
-        .map(([id, d]) => ({ id, ...d }))
-        .sort((a, b) => (b.score || 0) - (a.score || 0));
-
-      if (!entries.length) {
-        adminList.innerHTML = '<div class="lb-empty">No players yet</div>';
-        return;
-      }
-
-      adminList.innerHTML = entries.map((e) => `
-        <div class="admin-row" data-id="${escapeHtml(e.id)}">
-          <div>
-            <div class="admin-row-name">${escapeHtml(e.name || "Unknown")}</div>
-            <div class="admin-row-meta">ID: ${escapeHtml(e.id)} · Score: ${e.score || 0} · Power: ${e.ppc || 1} · Rebirths: ${e.rebirths || 0}</div>
-          </div>
-          <div class="admin-row-actions">
-            <input class="admin-add-input" type="number" placeholder="0">
-            <button class="admin-add-btn">Add</button>
-            <button class="admin-reset-btn">Reset</button>
-          </div>
-        </div>
-      `).join("");
-
-      adminList.querySelectorAll(".admin-add-btn").forEach((btn) => {
-        btn.addEventListener("click", (ev) => {
-          const row = ev.target.closest(".admin-row");
-          const id = row.dataset.id;
-          const input = row.querySelector(".admin-add-input");
-          const amount = parseInt(input.value, 10);
-          if (!Number.isFinite(amount) || amount === 0) return;
-          db.ref("leaderboard/" + id).once("value").then((snap) => {
-            const data = snap.val() || {};
-            const newScore = (data.score || 0) + amount;
-            const newRecord = Math.max(data.record || 0, newScore);
-            db.ref("leaderboard/" + id).update({ score: newScore, record: newRecord })
-              .then(loadAdminList)
-              .catch((err) => {
-                console.error("Admin add balance failed:", err);
-                alert("Failed to save: " + err.message);
-              });
-          }).catch((err) => {
-            console.error("Admin read failed:", err);
-            alert("Failed to read player data: " + err.message);
-          });
-        });
-      });
-
-      adminList.querySelectorAll(".admin-reset-btn").forEach((btn) => {
-        btn.addEventListener("click", (ev) => {
-          const row = ev.target.closest(".admin-row");
-          const id = row.dataset.id;
-          if (confirm("Reset this player's score to 0?")) {
-            db.ref("leaderboard/" + id).update({ score: 0, record: 0, ppc: 1, level: 0, rebirths: 0 })
-              .then(loadAdminList)
-              .catch((err) => {
-                console.error("Admin reset failed:", err);
-                alert("Failed to save: " + err.message);
-              });
-          }
-        });
-      });
+  function setupAboutPanel() {
+    aboutToggle.addEventListener("click", () => {
+      aboutOverlay.style.display = "flex";
     });
+    aboutClose.addEventListener("click", () => {
+      aboutOverlay.style.display = "none";
+    });
+    aboutOverlay.addEventListener("click", (e) => {
+      if (e.target === aboutOverlay) aboutOverlay.style.display = "none";
+    });
+
+    if (tg && tg.openLink) {
+      const tiktokLink = document.getElementById("aboutTiktok");
+      const youtubeLink = document.getElementById("aboutYoutube");
+      [tiktokLink, youtubeLink].forEach((el) => {
+        el.addEventListener("click", (e) => {
+          e.preventDefault();
+          tg.openLink(el.href);
+        });
+      });
+    }
+    if (tg && tg.openTelegramLink) {
+      const telegramLink = document.getElementById("aboutTelegram");
+      telegramLink.addEventListener("click", (e) => {
+        e.preventDefault();
+        tg.openTelegramLink(telegramLink.href);
+      });
+    }
   }
 
   setupAccountBox();
   setupAdminPanel();
+  setupAboutPanel();
 
   listenToLeaderboard();
   initPlayer();
