@@ -189,6 +189,26 @@
     80% { transform: translateX(4px); }
   }
 
+  .rebirth-box {
+    margin-top: 16px;
+  }
+  .rebirth-btn {
+    background: linear-gradient(135deg, #ffd36b, #ff9f4f);
+    box-shadow: 0 6px 16px rgba(255, 159, 79, 0.4);
+  }
+  .rebirth-btn.disabled {
+    background: #c9c1e0;
+    box-shadow: none;
+    cursor: not-allowed;
+    filter: grayscale(0.3);
+  }
+  .rebirth-btn.locked {
+    background: #d9d2ee;
+    box-shadow: none;
+    cursor: not-allowed;
+    filter: grayscale(0.5);
+  }
+
   .cat-wrap.locked .cat-btn {
     filter: grayscale(0.6) brightness(0.85);
     opacity: 0.75;
@@ -253,32 +273,6 @@
   .lb-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .lb-score { color: #6b5b95; }
   .lb-empty { text-align: center; color: #9a8bc0; font-size: 14px; padding: 8px 0; }
-
-  .account-box {
-    width: 100%;
-    max-width: 420px;
-    background: #ffffffcc;
-    border-radius: 16px;
-    padding: 14px 20px;
-    margin-top: 16px;
-    display: none;
-    justify-content: space-between;
-    align-items: center;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.06);
-    gap: 12px;
-  }
-  .account-id { font-size: 13px; color: #6b5b95; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .account-btn {
-    border: none;
-    border-radius: 12px;
-    padding: 10px 16px;
-    font-size: 13px;
-    font-weight: 700;
-    color: #6f4fe8;
-    background: #eee2fb;
-    cursor: pointer;
-    white-space: nowrap;
-  }
 
   .admin-toggle {
     position: fixed;
@@ -414,14 +408,17 @@
     <button class="upgrade-btn" id="upgradeBtn">⬆ Upgrade</button>
   </div>
 
+  <div class="upgrade-box rebirth-box" id="rebirthBox">
+    <div class="upgrade-info">
+      <span class="upgrade-title">Rebirth: <span id="rebirthMultVal">x1</span></span>
+      <span class="upgrade-sub" id="rebirthCostLabel">Locked — reach 10,000 points</span>
+    </div>
+    <button class="upgrade-btn rebirth-btn locked" id="rebirthBtn">🔁 Rebirth</button>
+  </div>
+
   <div class="leaderboard">
     <h3>Top 5 players</h3>
     <div id="lbList"><div class="lb-empty">Loading...</div></div>
-  </div>
-
-  <div class="account-box" id="accountBox">
-    <span class="account-id" id="accountIdLabel"></span>
-    <button class="account-btn" id="changeIdBtn">Change ID</button>
   </div>
 
   <button class="admin-toggle" id="adminToggle">⚙</button>
@@ -484,9 +481,9 @@
   const ppcValEl = document.getElementById("ppcVal");
   const upgradeCostLabel = document.getElementById("upgradeCostLabel");
   const perClickLabel = document.getElementById("perClickLabel");
-  const accountBox = document.getElementById("accountBox");
-  const accountIdLabel = document.getElementById("accountIdLabel");
-  const changeIdBtn = document.getElementById("changeIdBtn");
+  const rebirthBtn = document.getElementById("rebirthBtn");
+  const rebirthMultVal = document.getElementById("rebirthMultVal");
+  const rebirthCostLabel = document.getElementById("rebirthCostLabel");
   const adminToggle = document.getElementById("adminToggle");
   const adminOverlay = document.getElementById("adminOverlay");
   const adminClose = document.getElementById("adminClose");
@@ -496,37 +493,83 @@
   let record = 0;
   let upgradeLevel = 0;
   let pointsPerClick = 1;
+  let rebirthLevel = 0;
   let saveTimeout = null;
   let audioCtx = null;
   let lastClickTime = 0;
   let clickIntervals = [];
   let botLockUntil = 0;
+  let violationCount = 0;
+  let violationDecayTimer = null;
+  let lastPointerDownTime = 0;
+  let noPointerStreak = 0;
+  let sessionClickTimestamps = [];
 
   const MIN_CLICK_INTERVAL = 90;
   const SUSPICION_WINDOW = 10;
   const SUSPICION_STDDEV_THRESHOLD = 4;
-  const LOCK_DURATION = 4000;
+  const LOCK_DURATION_BASE = 4000;
+  const LOCK_DURATION_MAX = 60000;
+  const BURST_WINDOW_MS = 3000;
+  const BURST_MAX_CLICKS = 26; // ~8.7 clicks/sec sustained is well beyond human capability
+
+  // Rebirth cost thresholds: 10k, 50k, 100k, 250k, 500k, 750k, 1m, then doubling
+  const REBIRTH_THRESHOLDS = [10000, 50000, 100000, 250000, 500000, 750000, 1000000];
 
   function upgradeCost() {
     return Math.round(20 * Math.pow(1.55, upgradeLevel));
+  }
+
+  function rebirthCost(level) {
+    if (level < REBIRTH_THRESHOLDS.length) return REBIRTH_THRESHOLDS[level];
+    const last = REBIRTH_THRESHOLDS[REBIRTH_THRESHOLDS.length - 1];
+    const extra = level - REBIRTH_THRESHOLDS.length + 1;
+    return Math.round(last * Math.pow(2, extra));
+  }
+
+  function rebirthMultiplier() {
+    return Math.pow(2, rebirthLevel);
+  }
+
+  function effectivePointsPerClick() {
+    return pointsPerClick * rebirthMultiplier();
+  }
+
+  function formatNum(n) {
+    return n.toLocaleString("en-US");
   }
 
   function refreshUI() {
     scoreEl.textContent = score;
     recordEl.textContent = record;
     ppcValEl.textContent = pointsPerClick;
-    perClickLabel.textContent = `+${pointsPerClick} per click`;
+    perClickLabel.textContent = `+${effectivePointsPerClick()} per click`;
     upgradeCostLabel.textContent = `Cost: ${upgradeCost()}`;
     if (score < upgradeCost()) {
       upgradeBtn.classList.add("disabled");
     } else {
       upgradeBtn.classList.remove("disabled");
     }
+
+    const cost = rebirthCost(rebirthLevel);
+    rebirthMultVal.textContent = "x" + rebirthMultiplier();
+    const unlocked = record >= REBIRTH_THRESHOLDS[0];
+    rebirthBtn.classList.remove("locked", "disabled");
+    if (!unlocked) {
+      rebirthCostLabel.textContent = `Locked — reach ${formatNum(REBIRTH_THRESHOLDS[0])} points`;
+      rebirthBtn.classList.add("locked");
+    } else {
+      rebirthCostLabel.textContent = `Cost: ${formatNum(cost)} → x${rebirthMultiplier() * 2}`;
+      if (score < cost) {
+        rebirthBtn.classList.add("disabled");
+      }
+    }
   }
 
   function setControlsEnabled(enabled) {
     catBtn.disabled = !enabled;
     upgradeBtn.disabled = !enabled;
+    rebirthBtn.disabled = !enabled;
   }
 
   function loadLocalFallback() {
@@ -534,6 +577,7 @@
     record = parseInt(localStorage.getItem("mahy_record") || "0", 10);
     upgradeLevel = parseInt(localStorage.getItem("mahy_level") || "0", 10);
     pointsPerClick = parseInt(localStorage.getItem("mahy_ppc") || "1", 10);
+    rebirthLevel = parseInt(localStorage.getItem("mahy_rebirth") || "0", 10);
   }
 
   function persistLocal() {
@@ -541,6 +585,7 @@
     localStorage.setItem("mahy_record", record);
     localStorage.setItem("mahy_level", upgradeLevel);
     localStorage.setItem("mahy_ppc", pointsPerClick);
+    localStorage.setItem("mahy_rebirth", rebirthLevel);
   }
 
   function playClickSound() {
@@ -593,16 +638,56 @@
     } catch (e) {}
   }
 
+  function playRebirthSound() {
+    try {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const now = audioCtx.currentTime;
+      const sweep = audioCtx.createOscillator();
+      const sweepGain = audioCtx.createGain();
+      sweep.type = "sawtooth";
+      sweep.frequency.setValueAtTime(220, now);
+      sweep.frequency.exponentialRampToValueAtTime(1760, now + 0.5);
+      sweepGain.gain.setValueAtTime(0.0001, now);
+      sweepGain.gain.exponentialRampToValueAtTime(0.18, now + 0.1);
+      sweepGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.6);
+      sweep.connect(sweepGain).connect(audioCtx.destination);
+      sweep.start(now);
+      sweep.stop(now + 0.6);
+
+      const chordFreqs = [523.25, 659.25, 783.99, 1046.5];
+      chordFreqs.forEach((freq, i) => {
+        const start = now + 0.35 + i * 0.03;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = "triangle";
+        osc.frequency.setValueAtTime(freq, start);
+        gain.gain.setValueAtTime(0.0001, start);
+        gain.gain.exponentialRampToValueAtTime(0.2, start + 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.5);
+        osc.connect(gain).connect(audioCtx.destination);
+        osc.start(start);
+        osc.stop(start + 0.5);
+      });
+    } catch (e) {}
+  }
+
   function triggerBotLock() {
-    botLockUntil = Date.now() + LOCK_DURATION;
+    violationCount++;
+    clearTimeout(violationDecayTimer);
+    violationDecayTimer = setTimeout(() => { violationCount = 0; }, 60000);
+
+    const duration = Math.min(LOCK_DURATION_BASE * Math.pow(2, violationCount - 1), LOCK_DURATION_MAX);
+    botLockUntil = Date.now() + duration;
     clickIntervals = [];
+    sessionClickTimestamps = [];
+    noPointerStreak = 0;
     catWrap.classList.add("locked");
     catBtn.disabled = true;
     if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred("error");
     setTimeout(() => {
       catWrap.classList.remove("locked");
       catBtn.disabled = false;
-    }, LOCK_DURATION);
+    }, duration);
   }
 
   function spawnClickAnimation(e) {
@@ -624,7 +709,7 @@
     }
     const pts = document.createElement("div");
     pts.className = "float-pts";
-    pts.textContent = "+" + pointsPerClick;
+    pts.textContent = "+" + effectivePointsPerClick();
     pts.style.left = x + "px";
     pts.style.top = y + "px";
     pts.style.setProperty("--dx", (Math.random() * 40 - 20) + "px");
@@ -632,12 +717,45 @@
     pts.addEventListener("animationend", () => pts.remove());
   }
 
+  catBtn.addEventListener("pointerdown", (e) => {
+    if (!e.isTrusted) return;
+    lastPointerDownTime = Date.now();
+  });
+
   catBtn.addEventListener("click", (e) => {
     if (!e.isTrusted) return;
 
     const now = Date.now();
     if (now < botLockUntil) return;
+
+    // Autoclicker software running while the tab isn't focused/visible.
+    if (document.hidden) {
+      triggerBotLock();
+      return;
+    }
+
     if (now - lastClickTime < MIN_CLICK_INTERVAL) return;
+
+    // A genuine click is always preceded by a real pointerdown shortly before it.
+    // Synthetic clicks fired directly (no pointer sequence) are a strong bot signal.
+    const hadRecentPointerDown = lastPointerDownTime > 0 && (now - lastPointerDownTime) < 2000;
+    if (!hadRecentPointerDown) {
+      noPointerStreak++;
+      if (noPointerStreak >= 4) {
+        triggerBotLock();
+        return;
+      }
+    } else {
+      noPointerStreak = 0;
+    }
+
+    // Sustained superhuman click rate over a short rolling window.
+    sessionClickTimestamps.push(now);
+    sessionClickTimestamps = sessionClickTimestamps.filter((t) => now - t <= BURST_WINDOW_MS);
+    if (sessionClickTimestamps.length > BURST_MAX_CLICKS) {
+      triggerBotLock();
+      return;
+    }
 
     if (lastClickTime > 0) {
       const interval = now - lastClickTime;
@@ -656,7 +774,7 @@
     }
     lastClickTime = now;
 
-    score += pointsPerClick;
+    score += effectivePointsPerClick();
     if (score > record) record = score;
 
     playClickSound();
@@ -698,6 +816,37 @@
     if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred("success");
   });
 
+  rebirthBtn.addEventListener("click", (e) => {
+    if (!e.isTrusted) return;
+    const unlocked = record >= REBIRTH_THRESHOLDS[0];
+    if (!unlocked) return;
+
+    const cost = rebirthCost(rebirthLevel);
+    if (score < cost) {
+      rebirthBtn.classList.remove("shake");
+      void rebirthBtn.offsetWidth;
+      rebirthBtn.classList.add("shake");
+      if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred("error");
+      return;
+    }
+
+    score = 0;
+    rebirthLevel++;
+
+    refreshUI();
+    persistLocal();
+    playRebirthSound();
+
+    clearTimeout(saveTimeout);
+    saveTimeout = setTimeout(saveScoreToLeaderboard, 500);
+
+    rebirthBtn.classList.remove("bought");
+    void rebirthBtn.offsetWidth;
+    rebirthBtn.classList.add("bought");
+
+    if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred("success");
+  });
+
   function saveScoreToLeaderboard() {
     if (!db) return;
     db.ref("leaderboard/" + userId).set({
@@ -706,6 +855,7 @@
       record: record,
       ppc: pointsPerClick,
       level: upgradeLevel,
+      rebirths: rebirthLevel,
       updatedAt: Date.now()
     }).catch((err) => {
       console.error("Save to Firebase failed:", err);
@@ -759,6 +909,7 @@
         record = typeof data.record === "number" ? data.record : Math.max(record, score);
         pointsPerClick = typeof data.ppc === "number" ? data.ppc : pointsPerClick;
         upgradeLevel = typeof data.level === "number" ? data.level : upgradeLevel;
+        rebirthLevel = typeof data.rebirths === "number" ? data.rebirths : rebirthLevel;
         persistLocal();
       } else {
         saveScoreToLeaderboard();
@@ -779,17 +930,31 @@
     listenToOwnData();
   }
 
+  // Sync ID is intentionally not shown anywhere in the UI. Guests can still
+  // access it via a long-press on the score (2s hold) to move progress
+  // between devices, without exposing any ID visually by default.
   function setupAccountBox() {
     if (tgUser) return;
-    accountBox.style.display = "flex";
-    accountIdLabel.textContent = "ID: " + userId;
-    changeIdBtn.addEventListener("click", () => {
-      const input = prompt("Enter your sync ID (use the same ID on another device to share balance):", userId);
+    let pressTimer = null;
+
+    const openIdPrompt = () => {
+      const input = prompt("Sync ID (use the same ID on another device to share your balance):", userId);
       if (input && input.trim() && input.trim() !== userId) {
         localStorage.setItem("mahy_account_id", input.trim());
         location.reload();
       }
-    });
+    };
+
+    const startPress = () => {
+      clearTimeout(pressTimer);
+      pressTimer = setTimeout(openIdPrompt, 2000);
+    };
+    const cancelPress = () => clearTimeout(pressTimer);
+
+    scoreEl.addEventListener("pointerdown", startPress);
+    scoreEl.addEventListener("pointerup", cancelPress);
+    scoreEl.addEventListener("pointerleave", cancelPress);
+    scoreEl.addEventListener("pointercancel", cancelPress);
   }
 
   function setupAdminPanel() {
@@ -825,7 +990,7 @@
         <div class="admin-row" data-id="${escapeHtml(e.id)}">
           <div>
             <div class="admin-row-name">${escapeHtml(e.name || "Unknown")}</div>
-            <div class="admin-row-meta">ID: ${escapeHtml(e.id)} · Score: ${e.score || 0} · Power: ${e.ppc || 1}</div>
+            <div class="admin-row-meta">ID: ${escapeHtml(e.id)} · Score: ${e.score || 0} · Power: ${e.ppc || 1} · Rebirths: ${e.rebirths || 0}</div>
           </div>
           <div class="admin-row-actions">
             <input class="admin-add-input" type="number" placeholder="0">
@@ -864,7 +1029,7 @@
           const row = ev.target.closest(".admin-row");
           const id = row.dataset.id;
           if (confirm("Reset this player's score to 0?")) {
-            db.ref("leaderboard/" + id).update({ score: 0, record: 0, ppc: 1, level: 0 })
+            db.ref("leaderboard/" + id).update({ score: 0, record: 0, ppc: 1, level: 0, rebirths: 0 })
               .then(loadAdminList)
               .catch((err) => {
                 console.error("Admin reset failed:", err);
