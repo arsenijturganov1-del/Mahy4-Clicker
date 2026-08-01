@@ -304,6 +304,65 @@
   }
   .about-links a:active { background: #eee2fb; }
 
+  .settings-toggle {
+    position: fixed;
+    top: 16px;
+    left: 16px;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: none;
+    background: #2c2440;
+    color: #fff;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.3);
+    z-index: 200;
+  }
+  .settings-toggle:active { transform: scale(0.94); }
+
+  .volume-control {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .volume-btn {
+    border: none;
+    border-radius: 12px;
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    font-size: 18px;
+    font-weight: 800;
+    color: #fff;
+    background: linear-gradient(135deg, #9c6bff, #6f4fe8);
+    cursor: pointer;
+  }
+  .volume-btn:active { transform: scale(0.92); }
+  .volume-bar-wrap {
+    flex: 1;
+    height: 10px;
+    background: #eee2fb;
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .volume-bar-fill {
+    height: 100%;
+    background: linear-gradient(135deg, #9c6bff, #6f4fe8);
+    border-radius: 6px;
+    transition: width 0.15s ease;
+  }
+  .volume-value {
+    text-align: center;
+    margin-top: 10px;
+    font-weight: 700;
+    color: #6b5b95;
+    font-size: 13px;
+  }
+
   .admin-toggle {
     position: fixed;
     top: 16px;
@@ -406,7 +465,27 @@
   }
   .admin-name-row:last-child { border-bottom: none; }
   .admin-name-row:active { background: #f7f2ff; }
+  .admin-name-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-right: 10px; }
+  .admin-name-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .admin-name-balance { color: #6b5b95; font-weight: 700; font-size: 13px; }
   .admin-name-arrow { color: #9a8bc0; font-size: 18px; }
+
+  .admin-search-section {
+    background: #f7f2ff;
+    border-radius: 12px;
+    padding: 12px 14px;
+    margin-bottom: 14px;
+  }
+  .admin-search-input {
+    flex: 1;
+    min-width: 0;
+    border: 1px solid #eee2fb;
+    border-radius: 10px;
+    padding: 8px 10px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #2c2440;
+  }
 
   .admin-detail-stats {
     display: grid;
@@ -533,6 +612,25 @@
     </div>
   </div>
 
+  <button class="settings-toggle" id="settingsToggle">🔊</button>
+  <div class="admin-overlay" id="settingsOverlay">
+    <div class="admin-panel">
+      <div class="admin-header">
+        <div class="admin-header-left"><span>Настройки</span></div>
+        <button id="settingsClose">✕</button>
+      </div>
+      <div class="admin-detail-section">
+        <div class="admin-detail-label">Громкость звука</div>
+        <div class="volume-control">
+          <button class="volume-btn" id="volumeDown">−</button>
+          <div class="volume-bar-wrap"><div class="volume-bar-fill" id="volumeBarFill"></div></div>
+          <button class="volume-btn" id="volumeUp">+</button>
+        </div>
+        <div class="volume-value" id="volumeValueLabel">70%</div>
+      </div>
+    </div>
+  </div>
+
   <button class="admin-toggle" id="adminToggle">⚙</button>
   <div class="admin-overlay" id="adminOverlay">
     <div class="admin-panel">
@@ -542,6 +640,14 @@
           <span id="adminHeaderTitle">Admin panel</span>
         </div>
         <button id="adminClose">✕</button>
+      </div>
+      <div class="admin-search-section" id="adminSearchSection">
+        <div class="admin-detail-label">Выдать по ID или @юзернейму</div>
+        <div class="admin-row-actions">
+          <input type="text" id="adminSearchTarget" class="admin-search-input" placeholder="@user или ID">
+          <input type="number" id="adminSearchAmount" class="admin-add-input" placeholder="±0">
+          <button class="admin-add-btn" id="adminSearchApply">Выдать</button>
+        </div>
       </div>
       <div class="admin-list" id="adminList"></div>
     </div>
@@ -605,9 +711,20 @@
   const adminList = document.getElementById("adminList");
   const adminBackBtn = document.getElementById("adminBackBtn");
   const adminHeaderTitle = document.getElementById("adminHeaderTitle");
+  const adminSearchSection = document.getElementById("adminSearchSection");
+  const adminSearchTarget = document.getElementById("adminSearchTarget");
+  const adminSearchAmount = document.getElementById("adminSearchAmount");
+  const adminSearchApply = document.getElementById("adminSearchApply");
   const aboutToggle = document.getElementById("aboutToggle");
   const aboutOverlay = document.getElementById("aboutOverlay");
   const aboutClose = document.getElementById("aboutClose");
+  const settingsToggle = document.getElementById("settingsToggle");
+  const settingsOverlay = document.getElementById("settingsOverlay");
+  const settingsClose = document.getElementById("settingsClose");
+  const volumeDown = document.getElementById("volumeDown");
+  const volumeUp = document.getElementById("volumeUp");
+  const volumeBarFill = document.getElementById("volumeBarFill");
+  const volumeValueLabel = document.getElementById("volumeValueLabel");
 
   let score = 0;
   let record = 0;
@@ -616,6 +733,8 @@
   let rebirthLevel = 0;
   let saveTimeout = null;
   let audioCtx = null;
+  let masterVolume = parseFloat(localStorage.getItem("mahy_volume"));
+  if (!Number.isFinite(masterVolume) || masterVolume < 0 || masterVolume > 1) masterVolume = 0.7;
   let lastClickTime = 0;
   let clickIntervals = [];
   let botLockUntil = 0;
@@ -709,6 +828,7 @@
   }
 
   function playClickSound() {
+    if (masterVolume <= 0) return;
     try {
       if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       const osc = audioCtx.createOscillator();
@@ -716,8 +836,8 @@
       osc.type = "sine";
       osc.frequency.setValueAtTime(700, audioCtx.currentTime);
       osc.frequency.exponentialRampToValueAtTime(300, audioCtx.currentTime + 0.12);
-      gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.13);
+      gain.gain.setValueAtTime(0.2 * masterVolume, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001 * masterVolume, audioCtx.currentTime + 0.13);
       osc.connect(gain).connect(audioCtx.destination);
       osc.start();
       osc.stop(audioCtx.currentTime + 0.13);
@@ -725,6 +845,7 @@
   }
 
   function playPurchaseSound() {
+    if (masterVolume <= 0) return;
     try {
       if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       const now = audioCtx.currentTime;
@@ -737,7 +858,7 @@
         osc.type = "triangle";
         osc.frequency.setValueAtTime(freq, start);
         gain.gain.setValueAtTime(0.0001, start);
-        gain.gain.exponentialRampToValueAtTime(0.22, start + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.22 * masterVolume, start + 0.02);
         gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.35);
         osc.connect(gain).connect(audioCtx.destination);
         osc.start(start);
@@ -750,7 +871,7 @@
       shimmer.frequency.setValueAtTime(2093.0, now + 0.1);
       shimmer.frequency.exponentialRampToValueAtTime(2637.0, now + 0.3);
       shimmerGain.gain.setValueAtTime(0.0001, now + 0.1);
-      shimmerGain.gain.exponentialRampToValueAtTime(0.1, now + 0.13);
+      shimmerGain.gain.exponentialRampToValueAtTime(0.1 * masterVolume, now + 0.13);
       shimmerGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.45);
       shimmer.connect(shimmerGain).connect(audioCtx.destination);
       shimmer.start(now + 0.1);
@@ -759,6 +880,7 @@
   }
 
   function playRebirthSound() {
+    if (masterVolume <= 0) return;
     try {
       if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       const now = audioCtx.currentTime;
@@ -768,7 +890,7 @@
       sweep.frequency.setValueAtTime(220, now);
       sweep.frequency.exponentialRampToValueAtTime(1760, now + 0.5);
       sweepGain.gain.setValueAtTime(0.0001, now);
-      sweepGain.gain.exponentialRampToValueAtTime(0.18, now + 0.1);
+      sweepGain.gain.exponentialRampToValueAtTime(0.18 * masterVolume, now + 0.1);
       sweepGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.6);
       sweep.connect(sweepGain).connect(audioCtx.destination);
       sweep.start(now);
@@ -782,7 +904,7 @@
         osc.type = "triangle";
         osc.frequency.setValueAtTime(freq, start);
         gain.gain.setValueAtTime(0.0001, start);
-        gain.gain.exponentialRampToValueAtTime(0.2, start + 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.2 * masterVolume, start + 0.03);
         gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.5);
         osc.connect(gain).connect(audioCtx.destination);
         osc.start(start);
@@ -1097,6 +1219,7 @@
   function renderAdminList() {
     adminHeaderTitle.textContent = "Admin panel";
     adminBackBtn.style.display = "none";
+    adminSearchSection.style.display = "block";
 
     if (!adminEntries.length) {
       adminList.innerHTML = '<div class="lb-empty">No players yet</div>';
@@ -1105,8 +1228,11 @@
 
     adminList.innerHTML = adminEntries.map((e) => `
       <div class="admin-name-row" data-id="${escapeHtml(e.id)}">
-        <span>${escapeHtml(e.name || "Unknown")}</span>
-        <span class="admin-name-arrow">›</span>
+        <span class="admin-name-label">${escapeHtml(e.name || "Unknown")}</span>
+        <span class="admin-name-right">
+          <span class="admin-name-balance">${e.score || 0}</span>
+          <span class="admin-name-arrow">›</span>
+        </span>
       </div>
     `).join("");
 
@@ -1121,6 +1247,7 @@
 
     adminHeaderTitle.textContent = entry.name || "Unknown";
     adminBackBtn.style.display = "flex";
+    adminSearchSection.style.display = "none";
 
     adminList.innerHTML = `
       <div class="admin-detail-stats">
@@ -1219,6 +1346,42 @@
       if (e.target === adminOverlay) adminOverlay.style.display = "none";
     });
     adminBackBtn.addEventListener("click", renderAdminList);
+
+    adminSearchApply.addEventListener("click", () => {
+      const raw = adminSearchTarget.value.trim();
+      const amount = parseInt(adminSearchAmount.value, 10);
+      if (!raw || !Number.isFinite(amount) || amount === 0) return;
+
+      const directMatch = adminEntries.find((e) => e.id === raw);
+      let targetId = directMatch ? directMatch.id : null;
+
+      if (!targetId) {
+        const needle = raw.replace(/^@/, "").toLowerCase();
+        const nameMatch = adminEntries.find(
+          (e) => (e.name || "").replace(/^@/, "").toLowerCase() === needle
+        );
+        if (nameMatch) targetId = nameMatch.id;
+      }
+
+      if (!targetId) {
+        alert("Игрок не найден. Он должен хотя бы раз открыть игру, чтобы появиться в базе.");
+        return;
+      }
+
+      db.ref("leaderboard/" + targetId).once("value").then((snap) => {
+        const data = snap.val() || {};
+        const newScore = Math.max(0, (data.score || 0) + amount);
+        const newRecord = Math.max(data.record || 0, newScore);
+        return db.ref("leaderboard/" + targetId).update({ score: newScore, record: newRecord });
+      }).then(() => {
+        adminSearchTarget.value = "";
+        adminSearchAmount.value = "";
+        loadAdminList();
+      }).catch((err) => {
+        console.error("Admin search-give failed:", err);
+        alert("Failed to save: " + err.message);
+      });
+    });
   }
 
   function setupAboutPanel() {
@@ -1251,9 +1414,38 @@
     }
   }
 
+  function applyVolumeUI() {
+    const pct = Math.round(masterVolume * 100);
+    volumeBarFill.style.width = pct + "%";
+    volumeValueLabel.textContent = pct + "%";
+    settingsToggle.textContent = masterVolume <= 0 ? "🔇" : "🔊";
+  }
+
+  function setVolume(v) {
+    masterVolume = Math.min(1, Math.max(0, Math.round(v * 100) / 100));
+    localStorage.setItem("mahy_volume", masterVolume);
+    applyVolumeUI();
+  }
+
+  function setupSettingsPanel() {
+    applyVolumeUI();
+    settingsToggle.addEventListener("click", () => {
+      settingsOverlay.style.display = "flex";
+    });
+    settingsClose.addEventListener("click", () => {
+      settingsOverlay.style.display = "none";
+    });
+    settingsOverlay.addEventListener("click", (e) => {
+      if (e.target === settingsOverlay) settingsOverlay.style.display = "none";
+    });
+    volumeDown.addEventListener("click", () => setVolume(masterVolume - 0.1));
+    volumeUp.addEventListener("click", () => setVolume(masterVolume + 0.1));
+  }
+
   setupAccountBox();
   setupAdminPanel();
   setupAboutPanel();
+  setupSettingsPanel();
 
   listenToLeaderboard();
   initPlayer();
