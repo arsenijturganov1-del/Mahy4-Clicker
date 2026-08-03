@@ -5,8 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Mahy4 Clicker</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+
 <style>
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   body {
@@ -55,11 +57,13 @@
     margin-bottom: 30px;
   }
   .dot { width: 10px; height: 10px; border-radius: 50%; background: #4caf82; }
+
   .cat-wrap {
     position: relative;
     width: 300px;
     height: 300px;
   }
+
   .cat-btn {
     width: 300px;
     height: 300px;
@@ -86,6 +90,7 @@
     display: block;
   }
   .cat-btn:active { transform: scale(0.94); }
+
   .cat-btn.pop {
     animation: catPop 0.32s cubic-bezier(.36,1.7,.5,1);
   }
@@ -96,6 +101,7 @@
     75%  { transform: scale(0.98) rotate(-1deg); }
     100% { transform: scale(1) rotate(0deg); }
   }
+
   .ring-pulse {
     position: absolute;
     top: 50%; left: 50%;
@@ -112,6 +118,7 @@
     0%   { transform: translate(-50%, -50%) scale(0.75); opacity: 0.8; }
     100% { transform: translate(-50%, -50%) scale(1.25); opacity: 0; }
   }
+
   .float-pts {
     position: absolute;
     font-weight: 800;
@@ -127,6 +134,7 @@
     15%  { opacity: 1; transform: translate(-50%, -50%) scale(1.15); }
     100% { opacity: 0; transform: translate(calc(-50% + var(--dx, 0px)), -160%) scale(1); }
   }
+
   .upgrade-box {
     width: 100%;
     max-width: 420px;
@@ -180,6 +188,7 @@
     60% { transform: translateX(-4px); }
     80% { transform: translateX(4px); }
   }
+
   .rebirth-box {
     margin-top: 16px;
   }
@@ -199,12 +208,30 @@
     cursor: not-allowed;
     filter: grayscale(0.5);
   }
+
   .cat-wrap.locked .cat-btn {
     filter: grayscale(0.6) brightness(0.85);
     opacity: 0.75;
     cursor: not-allowed;
-    transition: filter 0.3s ease, opacity 0.3s ease;
   }
+
+  .record-box {
+    width: 100%;
+    max-width: 420px;
+    background: #ffffffcc;
+    border-radius: 16px;
+    padding: 18px 22px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: 700;
+    margin-top: 36px;
+    letter-spacing: 1px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.06);
+  }
+  .record-box span:first-child { color: #6b5b95; font-size: 14px; text-transform: uppercase; }
+  .record-box span:last-child { font-size: 22px; }
+
   .leaderboard {
     width: 100%;
     max-width: 420px;
@@ -246,6 +273,7 @@
   .lb-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .lb-score { color: #6b5b95; }
   .lb-empty { text-align: center; color: #9a8bc0; font-size: 14px; padding: 8px 0; }
+
   .about-btn {
     margin-top: 14px;
     border: none;
@@ -258,6 +286,7 @@
     cursor: pointer;
   }
   .about-btn:active { transform: scale(0.96); }
+
   .about-links {
     display: flex;
     flex-direction: column;
@@ -274,6 +303,7 @@
     text-decoration: none;
   }
   .about-links a:active { background: #eee2fb; }
+
   .settings-toggle {
     position: fixed;
     top: 16px;
@@ -293,6 +323,7 @@
     z-index: 200;
   }
   .settings-toggle:active { transform: scale(0.94); }
+
   .volume-control {
     display: flex;
     align-items: center;
@@ -331,6 +362,7 @@
     color: #6b5b95;
     font-size: 13px;
   }
+
   .admin-toggle {
     position: fixed;
     top: 16px;
@@ -349,6 +381,7 @@
     box-shadow: 0 6px 16px rgba(0,0,0,0.3);
     z-index: 200;
   }
+
   .admin-overlay {
     position: fixed;
     inset: 0;
@@ -436,6 +469,7 @@
   .admin-name-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
   .admin-name-balance { color: #6b5b95; font-weight: 700; font-size: 13px; }
   .admin-name-arrow { color: #9a8bc0; font-size: 18px; }
+
   .admin-search-section {
     background: #f7f2ff;
     border-radius: 12px;
@@ -452,6 +486,7 @@
     font-weight: 700;
     color: #2c2440;
   }
+
   .admin-detail-stats {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -476,7 +511,19 @@
     margin-bottom: 8px;
   }
   .admin-reset-full { width: 100%; }
-  .admin-row-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .admin-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid #eee2fb;
+  }
+  .admin-row:last-child { border-bottom: none; }
+  .admin-row-name { font-weight: 700; font-size: 14px; color: #2c2440; }
+  .admin-row-meta { font-size: 12px; color: #9a8bc0; margin-top: 2px; }
+  .admin-row-actions { display: flex; align-items: center; gap: 6px; }
   .admin-add-input {
     width: 70px;
     border: 1px solid #eee2fb;
@@ -509,63 +556,25 @@
     cursor: pointer;
     white-space: nowrap;
   }
-  .admin-section-title {
-    font-size: 12px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    color: #9a8bc0;
-    font-weight: 700;
-    margin: 6px 0 6px 0;
-  }
-  .skin-btn {
-    border: none;
-    border-radius: 30px;
-    padding: 10px 22px;
-    font-size: 14px;
-    font-weight: 700;
-    color: #6f4fe8;
-    background: #eee2fb;
-    cursor: pointer;
-    margin-top: 14px;
-  }
-  .skin-btn:active { transform: scale(0.96); }
-  .skin-overlay .admin-panel {
-    max-width: 400px;
-  }
-  .skin-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 10px;
-    margin: 10px 0;
-  }
-  .skin-item {
-    background: #f7f2ff;
-    border-radius: 12px;
-    padding: 12px 8px;
-    text-align: center;
-    font-weight: 700;
-    font-size: 13px;
-    color: #2c2440;
-    border: 2px solid transparent;
-    cursor: pointer;
-  }
-  .skin-item.active {
-    border-color: #6f4fe8;
-    background: #eee2fb;
-  }
-  .skin-item:active { transform: scale(0.95); }
-  .skin-item .preview { font-size: 48px; display: block; margin-bottom: 4px; }
-  .skin-item.locked { opacity: 0.5; filter: grayscale(0.7); cursor: not-allowed; }
 </style>
 </head>
 <body>
+
   <div class="label">MEOW POINTS</div>
   <div class="score" id="score">0</div>
   <div class="sublabel">total points</div>
+
   <div class="badge"><span class="dot"></span> <span id="perClickLabel">+1 per click</span></div>
+
   <div class="cat-wrap" id="catWrap">
-    <button class="cat-btn" id="catBtn"><img src="cat.png" alt="cat" id="catImage"></button>
+    <button class="cat-btn" id="catBtn"><img src="cat.png" alt="cat"></button>
   </div>
+
+  <div class="record-box">
+    <span>HIGH SCORE</span>
+    <span id="record">0</span>
+  </div>
+
   <div class="upgrade-box">
     <div class="upgrade-info">
       <span class="upgrade-title">Click power: <span id="ppcVal">1</span></span>
@@ -573,6 +582,7 @@
     </div>
     <button class="upgrade-btn" id="upgradeBtn">⬆ Upgrade</button>
   </div>
+
   <div class="upgrade-box rebirth-box" id="rebirthBox">
     <div class="upgrade-info">
       <span class="upgrade-title">Rebirth: <span id="rebirthMultVal">x1</span></span>
@@ -580,44 +590,37 @@
     </div>
     <button class="upgrade-btn rebirth-btn locked" id="rebirthBtn">🔁 Rebirth</button>
   </div>
-  <button class="skin-btn" id="skinToggle">🎨 Skins</button>
+
   <div class="leaderboard">
     <h3>Top 5 players</h3>
     <div id="lbList"><div class="lb-empty">Loading...</div></div>
   </div>
-  <button class="about-btn" id="aboutToggle">ℹ️ About</button>
+
+  <button class="about-btn" id="aboutToggle">ℹ️ О нас</button>
+
   <div class="admin-overlay" id="aboutOverlay">
     <div class="admin-panel">
       <div class="admin-header">
-        <div class="admin-header-left"><span>About</span></div>
+        <div class="admin-header-left"><span>О нас</span></div>
         <button id="aboutClose">✕</button>
       </div>
       <div class="about-links">
-        <a href="https://www.tiktok.com/@mahy4059?_r=1&_t=ZS-98WFUYlQilL" target="_blank" rel="noopener" id="aboutTiktok">🎵 TikTok</a>
-        <a href="https://www.youtube.com/@MahyClickerBot" target="_blank" rel="noopener" id="aboutYoutube">▶️ YouTube</a>
-        <a href="https://t.me/Mahy4ClickerChannel" target="_blank" rel="noopener" id="aboutTelegram">✈️ Telegram</a>
+        <a href="https://www.tiktok.com/@mahy4059?_r=1&_t=ZS-98WFUYlQilL" target="_blank" rel="noopener" id="aboutTiktok">🎵 Тикток</a>
+        <a href="https://www.youtube.com/@MahyClickerBot" target="_blank" rel="noopener" id="aboutYoutube">▶️ Ютуб</a>
+        <a href="https://t.me/Mahy4ClickerChannel" target="_blank" rel="noopener" id="aboutTelegram">✈️ Тг канал</a>
       </div>
     </div>
   </div>
-  <div class="admin-overlay skin-overlay" id="skinOverlay">
-    <div class="admin-panel">
-      <div class="admin-header">
-        <div class="admin-header-left"><span>🎨 Skins</span></div>
-        <button id="skinClose">✕</button>
-      </div>
-      <div style="font-size:13px;color:#9a8bc0;margin-bottom:10px;">Select a skin to apply</div>
-      <div class="skin-grid" id="skinGrid"></div>
-    </div>
-  </div>
+
   <button class="settings-toggle" id="settingsToggle">🔊</button>
   <div class="admin-overlay" id="settingsOverlay">
     <div class="admin-panel">
       <div class="admin-header">
-        <div class="admin-header-left"><span>Settings</span></div>
+        <div class="admin-header-left"><span>Настройки</span></div>
         <button id="settingsClose">✕</button>
       </div>
       <div class="admin-detail-section">
-        <div class="admin-detail-label">Sound volume</div>
+        <div class="admin-detail-label">Громкость звука</div>
         <div class="volume-control">
           <button class="volume-btn" id="volumeDown">−</button>
           <div class="volume-bar-wrap"><div class="volume-bar-fill" id="volumeBarFill"></div></div>
@@ -627,6 +630,7 @@
       </div>
     </div>
   </div>
+
   <button class="admin-toggle" id="adminToggle">⚙</button>
   <div class="admin-overlay" id="adminOverlay">
     <div class="admin-panel">
@@ -638,32 +642,17 @@
         <button id="adminClose">✕</button>
       </div>
       <div class="admin-search-section" id="adminSearchSection">
-        <div class="admin-section-title">Give points by ID or @username</div>
+        <div class="admin-detail-label">Выдать по ID или @юзернейму</div>
         <div class="admin-row-actions">
-          <input type="text" id="adminSearchTarget" class="admin-search-input" placeholder="@user or ID" style="flex:1;min-width:120px;">
+          <input type="text" id="adminSearchTarget" class="admin-search-input" placeholder="@user или ID">
           <input type="number" id="adminSearchAmount" class="admin-add-input" placeholder="±0">
-          <button class="admin-add-btn" id="adminSearchApply">Give</button>
-        </div>
-        <div class="admin-section-title" style="margin-top:10px;">Give rebirths by ID or @username</div>
-        <div class="admin-row-actions">
-          <input type="text" id="adminRebirthTarget" class="admin-search-input" placeholder="@user or ID" style="flex:1;min-width:120px;">
-          <input type="number" id="adminRebirthAmount" class="admin-add-input" placeholder="±0">
-          <button class="admin-add-btn" id="adminRebirthApply">Give</button>
-        </div>
-        <div class="admin-section-title" style="margin-top:10px;">Give skins by ID or @username</div>
-        <div class="admin-row-actions">
-          <input type="text" id="adminSkinTarget" class="admin-search-input" placeholder="@user or ID" style="flex:1;min-width:120px;">
-          <select id="adminSkinSelect" style="border:1px solid #eee2fb;border-radius:10px;padding:8px 10px;font-size:12px;font-weight:700;color:#2c2440;background:#fff;">
-            <option value="default">Default 🐱</option>
-            <option value="DinoCat">DinoCat 🦕</option>
-            <option value="NinjaCat">NinjaCat 🥷</option>
-          </select>
-          <button class="admin-add-btn" id="adminSkinApply">Give</button>
+          <button class="admin-add-btn" id="adminSearchApply">Выдать</button>
         </div>
       </div>
       <div class="admin-list" id="adminList"></div>
     </div>
   </div>
+
 <script>
   const firebaseConfig = {
     apiKey: "AIzaSyCadhKMGJ0nc9fWuB5BsMEixTyXSTAmtnk",
@@ -674,6 +663,7 @@
     messagingSenderId: "268929934750",
     appId: "1:268929934750:web:8ed46729d81bf334bc628f"
   };
+
   let db = null;
   try {
     firebase.initializeApp(firebaseConfig);
@@ -681,8 +671,10 @@
   } catch (e) {
     console.warn("Firebase not configured yet:", e);
   }
+
   const tg = window.Telegram ? window.Telegram.WebApp : null;
   if (tg) tg.ready();
+
   function getStoredGuestId() {
     let id = localStorage.getItem("mahy_account_id");
     if (!id) {
@@ -691,17 +683,20 @@
     }
     return id;
   }
+
   const tgUser = tg && tg.initDataUnsafe && tg.initDataUnsafe.user ? tg.initDataUnsafe.user : null;
   const userId = tgUser ? String(tgUser.id) : getStoredGuestId();
   const userName = tgUser
     ? (tgUser.username ? "@" + tgUser.username : [tgUser.first_name, tgUser.last_name].filter(Boolean).join(" "))
     : "Guest";
+
   const ADMIN_IDS = ["7918319938", "7815477305"];
   const isAdmin = ADMIN_IDS.includes(userId);
+
   const scoreEl = document.getElementById("score");
+  const recordEl = document.getElementById("record");
   const catBtn = document.getElementById("catBtn");
   const catWrap = document.getElementById("catWrap");
-  const catImage = document.getElementById("catImage");
   const lbList = document.getElementById("lbList");
   const upgradeBtn = document.getElementById("upgradeBtn");
   const ppcValEl = document.getElementById("ppcVal");
@@ -720,12 +715,6 @@
   const adminSearchTarget = document.getElementById("adminSearchTarget");
   const adminSearchAmount = document.getElementById("adminSearchAmount");
   const adminSearchApply = document.getElementById("adminSearchApply");
-  const adminRebirthTarget = document.getElementById("adminRebirthTarget");
-  const adminRebirthAmount = document.getElementById("adminRebirthAmount");
-  const adminRebirthApply = document.getElementById("adminRebirthApply");
-  const adminSkinTarget = document.getElementById("adminSkinTarget");
-  const adminSkinSelect = document.getElementById("adminSkinSelect");
-  const adminSkinApply = document.getElementById("adminSkinApply");
   const aboutToggle = document.getElementById("aboutToggle");
   const aboutOverlay = document.getElementById("aboutOverlay");
   const aboutClose = document.getElementById("aboutClose");
@@ -736,15 +725,17 @@
   const volumeUp = document.getElementById("volumeUp");
   const volumeBarFill = document.getElementById("volumeBarFill");
   const volumeValueLabel = document.getElementById("volumeValueLabel");
-  const skinToggle = document.getElementById("skinToggle");
-  const skinOverlay = document.getElementById("skinOverlay");
-  const skinClose = document.getElementById("skinClose");
-  const skinGrid = document.getElementById("skinGrid");
+
   let score = 0;
+  let record = 0;
   let upgradeLevel = 0;
   let pointsPerClick = 1;
   let rebirthLevel = 0;
   let saveTimeout = null;
+  let forceSaveInterval = null;
+  let hasUnsavedChanges = false;
+  let lastPointerType = "mouse";
+  let touchClickPositions = [];
   let audioCtx = null;
   let masterVolume = parseFloat(localStorage.getItem("mahy_volume"));
   if (!Number.isFinite(masterVolume) || masterVolume < 0 || masterVolume > 1) masterVolume = 0.7;
@@ -756,45 +747,49 @@
   let lastPointerDownTime = 0;
   let noPointerStreak = 0;
   let sessionClickTimestamps = [];
-  let clickCountSinceLastCheck = 0;
-  let checkInterval = null;
-  let currentSkin = "default";
-  let ownedSkins = ["default"];
-  const SKINS = {
-    default: { name: "Default", emoji: "🐱", img: "cat.png" },
-    DinoCat: { name: "DinoCat", emoji: "🦕", img: "DinoCat.png" },
-    NinjaCat: { name: "NinjaCat", emoji: "🥷", img: "NinjaCat.png" }
-  };
+
   const MIN_CLICK_INTERVAL = 90;
-  const SUSPICION_WINDOW = 12;
-  const SUSPICION_STDDEV_THRESHOLD = 5;
+  const SUSPICION_WINDOW = 10;
+  const SUSPICION_STDDEV_THRESHOLD = 4;
   const LOCK_DURATION_BASE = 4000;
   const LOCK_DURATION_MAX = 60000;
   const BURST_WINDOW_MS = 3000;
-  const BURST_MAX_CLICKS = 22;
-  const CLICK_RATE_CHECK_INTERVAL = 5000;
-  const MAX_CLICKS_PER_INTERVAL = 40;
+  const BURST_MAX_CLICKS = 26; // ~8.7 clicks/sec sustained is well beyond human capability
+  const TOUCH_POSITION_WINDOW = 8;
+  const TOUCH_POSITION_STDDEV_THRESHOLD = 1.5; // px — real fingers never tap the exact same pixel repeatedly
+  const SUSTAINED_WINDOW_MS = 20000;
+  const SUSTAINED_MAX_CLICKS = 140; // ~7 clicks/sec sustained over 20s is not humanly realistic
+  const FORCE_SAVE_INTERVAL_MS = 4000;
+
+  // Rebirth cost thresholds: 10k, 50k, 100k, 250k, 500k, 750k, 1m, then doubling
   const REBIRTH_THRESHOLDS = [10000, 50000, 100000, 250000, 500000, 750000, 1000000];
+
   function upgradeCost() {
     return Math.round(20 * Math.pow(1.55, upgradeLevel));
   }
+
   function rebirthCost(level) {
     if (level < REBIRTH_THRESHOLDS.length) return REBIRTH_THRESHOLDS[level];
     const last = REBIRTH_THRESHOLDS[REBIRTH_THRESHOLDS.length - 1];
     const extra = level - REBIRTH_THRESHOLDS.length + 1;
     return Math.round(last * Math.pow(2, extra));
   }
+
   function rebirthMultiplier() {
-    return Math.pow(2, rebirthLevel);
+    return rebirthLevel + 1;
   }
+
   function effectivePointsPerClick() {
     return pointsPerClick * rebirthMultiplier();
   }
+
   function formatNum(n) {
     return n.toLocaleString("en-US");
   }
+
   function refreshUI() {
     scoreEl.textContent = score;
+    recordEl.textContent = record;
     ppcValEl.textContent = pointsPerClick;
     perClickLabel.textContent = `+${effectivePointsPerClick()} per click`;
     upgradeCostLabel.textContent = `Cost: ${upgradeCost()}`;
@@ -803,75 +798,44 @@
     } else {
       upgradeBtn.classList.remove("disabled");
     }
+
     const cost = rebirthCost(rebirthLevel);
     rebirthMultVal.textContent = "x" + rebirthMultiplier();
-    const unlocked = score >= REBIRTH_THRESHOLDS[0];
+    const unlocked = record >= REBIRTH_THRESHOLDS[0];
     rebirthBtn.classList.remove("locked", "disabled");
     if (!unlocked) {
       rebirthCostLabel.textContent = `Locked — reach ${formatNum(REBIRTH_THRESHOLDS[0])} points`;
       rebirthBtn.classList.add("locked");
     } else {
-      rebirthCostLabel.textContent = `Cost: ${formatNum(cost)} → x${rebirthMultiplier() * 2}`;
+      rebirthCostLabel.textContent = `Cost: ${formatNum(cost)} → x${rebirthMultiplier() + 1}`;
       if (score < cost) {
         rebirthBtn.classList.add("disabled");
       }
     }
   }
+
   function setControlsEnabled(enabled) {
     catBtn.disabled = !enabled;
     upgradeBtn.disabled = !enabled;
     rebirthBtn.disabled = !enabled;
   }
+
   function loadLocalFallback() {
     score = parseInt(localStorage.getItem("mahy_score") || "0", 10);
+    record = parseInt(localStorage.getItem("mahy_record") || "0", 10);
     upgradeLevel = parseInt(localStorage.getItem("mahy_level") || "0", 10);
     pointsPerClick = parseInt(localStorage.getItem("mahy_ppc") || "1", 10);
     rebirthLevel = parseInt(localStorage.getItem("mahy_rebirth") || "0", 10);
-    currentSkin = localStorage.getItem("mahy_skin") || "default";
-    try {
-      const saved = localStorage.getItem("mahy_skins");
-      if (saved) ownedSkins = JSON.parse(saved);
-      if (!ownedSkins.includes("default")) ownedSkins.unshift("default");
-    } catch(e) { ownedSkins = ["default"]; }
   }
+
   function persistLocal() {
     localStorage.setItem("mahy_score", score);
+    localStorage.setItem("mahy_record", record);
     localStorage.setItem("mahy_level", upgradeLevel);
     localStorage.setItem("mahy_ppc", pointsPerClick);
     localStorage.setItem("mahy_rebirth", rebirthLevel);
-    localStorage.setItem("mahy_skin", currentSkin);
-    localStorage.setItem("mahy_skins", JSON.stringify(ownedSkins));
   }
-  function applySkin(skinId) {
-    if (!ownedSkins.includes(skinId)) return;
-    currentSkin = skinId;
-    const skin = SKINS[skinId];
-    if (skin) {
-      catImage.src = skin.img;
-      catImage.alt = skin.name;
-    }
-    persistLocal();
-    renderSkinGrid();
-  }
-  function renderSkinGrid() {
-    skinGrid.innerHTML = Object.entries(SKINS).map(([id, skin]) => {
-      const owned = ownedSkins.includes(id);
-      const active = currentSkin === id;
-      return `<div class="skin-item ${active ? 'active' : ''} ${!owned ? 'locked' : ''}" data-skin="${id}">
-        <span class="preview">${skin.emoji}</span>
-        ${skin.name}
-        ${!owned ? '🔒' : ''}
-      </div>`;
-    }).join("");
-    skinGrid.querySelectorAll(".skin-item").forEach(el => {
-      el.addEventListener("click", () => {
-        const id = el.dataset.skin;
-        if (ownedSkins.includes(id)) {
-          applySkin(id);
-        }
-      });
-    });
-  }
+
   function playClickSound() {
     if (masterVolume <= 0) return;
     try {
@@ -888,11 +852,13 @@
       osc.stop(audioCtx.currentTime + 0.13);
     } catch (e) {}
   }
+
   function playPurchaseSound() {
     if (masterVolume <= 0) return;
     try {
       if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       const now = audioCtx.currentTime;
+
       const dingFreqs = [1046.5, 1568.0];
       dingFreqs.forEach((freq, i) => {
         const start = now + i * 0.09;
@@ -907,6 +873,7 @@
         osc.start(start);
         osc.stop(start + 0.36);
       });
+
       const shimmer = audioCtx.createOscillator();
       const shimmerGain = audioCtx.createGain();
       shimmer.type = "sine";
@@ -920,6 +887,7 @@
       shimmer.stop(now + 0.46);
     } catch (e) {}
   }
+
   function playRebirthSound() {
     if (masterVolume <= 0) return;
     try {
@@ -936,6 +904,7 @@
       sweep.connect(sweepGain).connect(audioCtx.destination);
       sweep.start(now);
       sweep.stop(now + 0.6);
+
       const chordFreqs = [523.25, 659.25, 783.99, 1046.5];
       chordFreqs.forEach((freq, i) => {
         const start = now + 0.35 + i * 0.03;
@@ -952,16 +921,18 @@
       });
     } catch (e) {}
   }
+
   function triggerBotLock() {
     violationCount++;
     clearTimeout(violationDecayTimer);
     violationDecayTimer = setTimeout(() => { violationCount = 0; }, 60000);
+
     const duration = Math.min(LOCK_DURATION_BASE * Math.pow(2, violationCount - 1), LOCK_DURATION_MAX);
     botLockUntil = Date.now() + duration;
     clickIntervals = [];
     sessionClickTimestamps = [];
+    touchClickPositions = [];
     noPointerStreak = 0;
-    clickCountSinceLastCheck = 0;
     catWrap.classList.add("locked");
     catBtn.disabled = true;
     if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred("error");
@@ -970,14 +941,17 @@
       catBtn.disabled = false;
     }, duration);
   }
+
   function spawnClickAnimation(e) {
     catBtn.classList.remove("pop");
     void catBtn.offsetWidth;
     catBtn.classList.add("pop");
+
     const ring = document.createElement("div");
     ring.className = "ring-pulse";
     catWrap.appendChild(ring);
     ring.addEventListener("animationend", () => ring.remove());
+
     const rect = catBtn.getBoundingClientRect();
     let x = rect.width / 2;
     let y = rect.height / 2;
@@ -994,69 +968,101 @@
     catWrap.appendChild(pts);
     pts.addEventListener("animationend", () => pts.remove());
   }
+
   catBtn.addEventListener("pointerdown", (e) => {
     if (!e.isTrusted) return;
     lastPointerDownTime = Date.now();
+    lastPointerType = e.pointerType || "mouse";
   });
+
   catBtn.addEventListener("click", (e) => {
     if (!e.isTrusted) return;
+
     const now = Date.now();
     if (now < botLockUntil) return;
+
+    // Autoclicker software running while the tab isn't focused/visible.
     if (document.hidden) {
       triggerBotLock();
       return;
     }
+
     if (now - lastClickTime < MIN_CLICK_INTERVAL) return;
+
+    // A genuine click is always preceded by a real pointerdown shortly before it.
+    // Synthetic clicks fired directly (no pointer sequence) are a strong bot signal.
     const hadRecentPointerDown = lastPointerDownTime > 0 && (now - lastPointerDownTime) < 2000;
     if (!hadRecentPointerDown) {
       noPointerStreak++;
-      if (noPointerStreak >= 3) {
+      if (noPointerStreak >= 4) {
         triggerBotLock();
         return;
       }
     } else {
       noPointerStreak = 0;
     }
+
+    // Click rate checks over a short window (burst) and a longer window (sustained bot use).
     sessionClickTimestamps.push(now);
-    sessionClickTimestamps = sessionClickTimestamps.filter((t) => now - t <= BURST_WINDOW_MS);
-    if (sessionClickTimestamps.length > BURST_MAX_CLICKS) {
+    sessionClickTimestamps = sessionClickTimestamps.filter((t) => now - t <= SUSTAINED_WINDOW_MS);
+    const burstCount = sessionClickTimestamps.filter((t) => now - t <= BURST_WINDOW_MS).length;
+    if (burstCount > BURST_MAX_CLICKS) {
       triggerBotLock();
       return;
     }
-    clickCountSinceLastCheck++;
+    if (sessionClickTimestamps.length > SUSTAINED_MAX_CLICKS) {
+      triggerBotLock();
+      return;
+    }
+
+    // Touch autoclickers (accessibility-service style) usually tap the exact
+    // same screen pixel every time. Real fingers always have some jitter.
+    if (lastPointerType === "touch") {
+      const rect = catBtn.getBoundingClientRect();
+      touchClickPositions.push({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+      if (touchClickPositions.length > TOUCH_POSITION_WINDOW) touchClickPositions.shift();
+      if (touchClickPositions.length === TOUCH_POSITION_WINDOW) {
+        const avgX = touchClickPositions.reduce((a, p) => a + p.x, 0) / touchClickPositions.length;
+        const avgY = touchClickPositions.reduce((a, p) => a + p.y, 0) / touchClickPositions.length;
+        const stdX = Math.sqrt(touchClickPositions.reduce((a, p) => a + Math.pow(p.x - avgX, 2), 0) / touchClickPositions.length);
+        const stdY = Math.sqrt(touchClickPositions.reduce((a, p) => a + Math.pow(p.y - avgY, 2), 0) / touchClickPositions.length);
+        if (stdX < TOUCH_POSITION_STDDEV_THRESHOLD && stdY < TOUCH_POSITION_STDDEV_THRESHOLD) {
+          triggerBotLock();
+          return;
+        }
+      }
+    }
+
     if (lastClickTime > 0) {
       const interval = now - lastClickTime;
       clickIntervals.push(interval);
       if (clickIntervals.length > SUSPICION_WINDOW) clickIntervals.shift();
+
       if (clickIntervals.length === SUSPICION_WINDOW) {
         const avg = clickIntervals.reduce((a, b) => a + b, 0) / clickIntervals.length;
         const variance = clickIntervals.reduce((a, b) => a + Math.pow(b - avg, 2), 0) / clickIntervals.length;
         const stddev = Math.sqrt(variance);
-        if (stddev < SUSPICION_STDDEV_THRESHOLD && avg < 350) {
+        if (stddev < SUSPICION_STDDEV_THRESHOLD && avg < 400) {
           triggerBotLock();
           return;
         }
       }
     }
     lastClickTime = now;
+
     score += effectivePointsPerClick();
+    if (score > record) record = score;
+
     playClickSound();
     spawnClickAnimation(e);
     refreshUI();
     persistLocal();
+
     if (tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred("light");
-    clearTimeout(saveTimeout);
-    saveTimeout = setTimeout(saveScoreToLeaderboard, 500);
+
+    scheduleSave();
   });
-  function startClickRateMonitor() {
-    if (checkInterval) clearInterval(checkInterval);
-    checkInterval = setInterval(() => {
-      if (clickCountSinceLastCheck > MAX_CLICKS_PER_INTERVAL) {
-        triggerBotLock();
-      }
-      clickCountSinceLastCheck = 0;
-    }, CLICK_RATE_CHECK_INTERVAL);
-  }
+
   upgradeBtn.addEventListener("click", (e) => {
     if (!e.isTrusted) return;
     const cost = upgradeCost();
@@ -1070,20 +1076,25 @@
     score -= cost;
     upgradeLevel++;
     pointsPerClick++;
+
     refreshUI();
     persistLocal();
     playPurchaseSound();
-    clearTimeout(saveTimeout);
-    saveTimeout = setTimeout(saveScoreToLeaderboard, 500);
+
+    scheduleSave();
+
     upgradeBtn.classList.remove("bought");
     void upgradeBtn.offsetWidth;
     upgradeBtn.classList.add("bought");
+
     if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred("success");
   });
+
   rebirthBtn.addEventListener("click", (e) => {
     if (!e.isTrusted) return;
-    const unlocked = score >= REBIRTH_THRESHOLDS[0];
+    const unlocked = record >= REBIRTH_THRESHOLDS[0];
     if (!unlocked) return;
+
     const cost = rebirthCost(rebirthLevel);
     if (score < cost) {
       rebirthBtn.classList.remove("shake");
@@ -1092,33 +1103,67 @@
       if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred("error");
       return;
     }
+
     score = 0;
     rebirthLevel++;
+
     refreshUI();
     persistLocal();
     playRebirthSound();
-    clearTimeout(saveTimeout);
-    saveTimeout = setTimeout(saveScoreToLeaderboard, 500);
+
+    scheduleSave();
+    saveScoreToLeaderboard();
+
     rebirthBtn.classList.remove("bought");
     void rebirthBtn.offsetWidth;
     rebirthBtn.classList.add("bought");
+
     if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred("success");
   });
+
+  function scheduleSave() {
+    hasUnsavedChanges = true;
+    clearTimeout(saveTimeout);
+    saveTimeout = setTimeout(saveScoreToLeaderboard, 500);
+  }
+
   function saveScoreToLeaderboard() {
     if (!db) return;
+    clearTimeout(saveTimeout);
+    const wasUnsaved = hasUnsavedChanges;
+    hasUnsavedChanges = false;
     db.ref("leaderboard/" + userId).set({
       name: userName,
       score: score,
+      record: record,
       ppc: pointsPerClick,
       level: upgradeLevel,
       rebirths: rebirthLevel,
-      skin: currentSkin,
-      skins: ownedSkins,
       updatedAt: Date.now()
     }).catch((err) => {
       console.error("Save to Firebase failed:", err);
+      if (wasUnsaved) hasUnsavedChanges = true;
     });
   }
+
+  // A debounce alone is not enough: while clicks keep arriving faster than the
+  // debounce delay (e.g. an autoclicker running continuously), the debounced
+  // save never actually fires and progress is lost if the app is closed.
+  // This periodic sweep guarantees a save at least every few seconds no
+  // matter how continuously the player is clicking.
+  forceSaveInterval = setInterval(() => {
+    if (hasUnsavedChanges) saveScoreToLeaderboard();
+  }, FORCE_SAVE_INTERVAL_MS);
+
+  function flushSaveIfNeeded() {
+    if (hasUnsavedChanges) saveScoreToLeaderboard();
+  }
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) flushSaveIfNeeded();
+  });
+  window.addEventListener("pagehide", flushSaveIfNeeded);
+  window.addEventListener("beforeunload", flushSaveIfNeeded);
+
   function renderLeaderboard(entries) {
     if (!entries.length) {
       lbList.innerHTML = '<div class="lb-empty">No scores yet — be the first!</div>';
@@ -1134,11 +1179,13 @@
       </div>
     `).join("");
   }
+
   function escapeHtml(str) {
     const div = document.createElement("div");
     div.textContent = str;
     return div.innerHTML;
   }
+
   function listenToLeaderboard() {
     if (!db) {
       lbList.innerHTML = '<div class="lb-empty">Leaderboard not connected yet</div>';
@@ -1150,6 +1197,7 @@
       renderLeaderboard(entries);
     });
   }
+
   function listenToOwnData() {
     if (!db) {
       refreshUI();
@@ -1160,17 +1208,10 @@
       if (snap.exists()) {
         const data = snap.val();
         score = typeof data.score === "number" ? data.score : score;
+        record = typeof data.record === "number" ? data.record : Math.max(record, score);
         pointsPerClick = typeof data.ppc === "number" ? data.ppc : pointsPerClick;
         upgradeLevel = typeof data.level === "number" ? data.level : upgradeLevel;
         rebirthLevel = typeof data.rebirths === "number" ? data.rebirths : rebirthLevel;
-        if (data.skin && ownedSkins.includes(data.skin)) {
-          currentSkin = data.skin;
-        }
-        if (data.skins && Array.isArray(data.skins)) {
-          ownedSkins = data.skins;
-          if (!ownedSkins.includes("default")) ownedSkins.unshift("default");
-        }
-        applySkin(currentSkin);
         persistLocal();
       } else {
         saveScoreToLeaderboard();
@@ -1183,17 +1224,21 @@
       setControlsEnabled(true);
     });
   }
+
   function initPlayer() {
     loadLocalFallback();
-    applySkin(currentSkin);
     refreshUI();
     setControlsEnabled(false);
-    startClickRateMonitor();
     listenToOwnData();
   }
+
+  // Sync ID is intentionally not shown anywhere in the UI. Guests can still
+  // access it via a long-press on the score (2s hold) to move progress
+  // between devices, without exposing any ID visually by default.
   function setupAccountBox() {
     if (tgUser) return;
     let pressTimer = null;
+
     const openIdPrompt = () => {
       const input = prompt("Sync ID (use the same ID on another device to share your balance):", userId);
       if (input && input.trim() && input.trim() !== userId) {
@@ -1201,17 +1246,21 @@
         location.reload();
       }
     };
+
     const startPress = () => {
       clearTimeout(pressTimer);
       pressTimer = setTimeout(openIdPrompt, 2000);
     };
     const cancelPress = () => clearTimeout(pressTimer);
+
     scoreEl.addEventListener("pointerdown", startPress);
     scoreEl.addEventListener("pointerup", cancelPress);
     scoreEl.addEventListener("pointerleave", cancelPress);
     scoreEl.addEventListener("pointercancel", cancelPress);
   }
+
   let adminEntries = [];
+
   function loadAdminList() {
     if (!db) return;
     adminList.innerHTML = '<div class="lb-empty">Loading...</div>';
@@ -1226,14 +1275,17 @@
       adminList.innerHTML = '<div class="lb-empty">Failed to load</div>';
     });
   }
+
   function renderAdminList() {
     adminHeaderTitle.textContent = "Admin panel";
     adminBackBtn.style.display = "none";
     adminSearchSection.style.display = "block";
+
     if (!adminEntries.length) {
       adminList.innerHTML = '<div class="lb-empty">No players yet</div>';
       return;
     }
+
     adminList.innerHTML = adminEntries.map((e) => `
       <div class="admin-name-row" data-id="${escapeHtml(e.id)}">
         <span class="admin-name-label">${escapeHtml(e.name || "Unknown")}</span>
@@ -1243,52 +1295,46 @@
         </span>
       </div>
     `).join("");
+
     adminList.querySelectorAll(".admin-name-row").forEach((row) => {
       row.addEventListener("click", () => renderAdminDetail(row.dataset.id));
     });
   }
+
   function renderAdminDetail(id) {
     const entry = adminEntries.find((e) => e.id === id);
     if (!entry) return;
+
     adminHeaderTitle.textContent = entry.name || "Unknown";
     adminBackBtn.style.display = "flex";
     adminSearchSection.style.display = "none";
+
     adminList.innerHTML = `
       <div class="admin-detail-stats">
         <div>Score: <b>${entry.score || 0}</b></div>
+        <div>Record: <b>${entry.record || 0}</b></div>
         <div>Click power: <b>${entry.ppc || 1}</b></div>
         <div>Rebirths: <b>${entry.rebirths || 0}</b></div>
-        <div>Skin: <b>${entry.skin || "default"}</b></div>
       </div>
       <div class="admin-detail-section">
-        <div class="admin-detail-label">Change points (+ give / − take)</div>
+        <div class="admin-detail-label">Изменить очки (+ выдать / − снять)</div>
         <div class="admin-row-actions">
           <input class="admin-add-input" type="number" placeholder="±0" id="adminScoreInput">
-          <button class="admin-add-btn" id="adminScoreApply">Apply</button>
+          <button class="admin-add-btn" id="adminScoreApply">Применить</button>
         </div>
       </div>
       <div class="admin-detail-section">
-        <div class="admin-detail-label">Change rebirths (+ give / − take)</div>
+        <div class="admin-detail-label">Ребёртхи</div>
         <div class="admin-row-actions">
-          <input class="admin-add-input" type="number" placeholder="±0" id="adminRebirthInput">
-          <button class="admin-add-btn" id="adminRebirthApplyDetail">Apply</button>
+          <button class="admin-add-btn" id="adminRebirthAdd">+1 выдать</button>
+          <button class="admin-reset-btn" id="adminRebirthRemove">−1 снять</button>
         </div>
       </div>
       <div class="admin-detail-section">
-        <div class="admin-detail-label">Give skin</div>
-        <div class="admin-row-actions">
-          <select id="adminDetailSkinSelect" style="border:1px solid #eee2fb;border-radius:10px;padding:8px 10px;font-size:12px;font-weight:700;color:#2c2440;background:#fff;">
-            <option value="default">Default 🐱</option>
-            <option value="DinoCat">DinoCat 🦕</option>
-            <option value="NinjaCat">NinjaCat 🥷</option>
-          </select>
-          <button class="admin-add-btn" id="adminDetailSkinApply">Give</button>
-        </div>
-      </div>
-      <div class="admin-detail-section">
-        <button class="admin-reset-btn admin-reset-full" id="adminResetFull">Reset completely</button>
+        <button class="admin-reset-btn admin-reset-full" id="adminResetFull">Сбросить полностью</button>
       </div>
     `;
+
     document.getElementById("adminScoreApply").addEventListener("click", () => {
       const input = document.getElementById("adminScoreInput");
       const amount = parseInt(input.value, 10);
@@ -1296,43 +1342,39 @@
       db.ref("leaderboard/" + id).once("value").then((snap) => {
         const data = snap.val() || {};
         const newScore = Math.max(0, (data.score || 0) + amount);
-        return db.ref("leaderboard/" + id).update({ score: newScore });
+        const newRecord = Math.max(data.record || 0, newScore);
+        return db.ref("leaderboard/" + id).update({ score: newScore, record: newRecord });
       }).then(() => refreshAdminDetail(id)).catch((err) => {
         console.error("Admin score change failed:", err);
         alert("Failed to save: " + err.message);
       });
     });
-    document.getElementById("adminRebirthApplyDetail").addEventListener("click", () => {
-      const input = document.getElementById("adminRebirthInput");
-      const amount = parseInt(input.value, 10);
-      if (!Number.isFinite(amount) || amount === 0) return;
+
+    document.getElementById("adminRebirthAdd").addEventListener("click", () => {
       db.ref("leaderboard/" + id).once("value").then((snap) => {
         const data = snap.val() || {};
-        const newRebirths = Math.max(0, (data.rebirths || 0) + amount);
+        const newRebirths = (data.rebirths || 0) + 1;
         return db.ref("leaderboard/" + id).update({ rebirths: newRebirths });
       }).then(() => refreshAdminDetail(id)).catch((err) => {
-        console.error("Admin rebirth change failed:", err);
+        console.error("Admin rebirth add failed:", err);
         alert("Failed to save: " + err.message);
       });
     });
-    document.getElementById("adminDetailSkinApply").addEventListener("click", () => {
-      const skinId = document.getElementById("adminDetailSkinSelect").value;
+
+    document.getElementById("adminRebirthRemove").addEventListener("click", () => {
       db.ref("leaderboard/" + id).once("value").then((snap) => {
         const data = snap.val() || {};
-        let skins = data.skins || ["default"];
-        if (!Array.isArray(skins)) skins = ["default"];
-        if (!skins.includes(skinId)) {
-          skins.push(skinId);
-        }
-        return db.ref("leaderboard/" + id).update({ skins: skins });
+        const newRebirths = Math.max(0, (data.rebirths || 0) - 1);
+        return db.ref("leaderboard/" + id).update({ rebirths: newRebirths });
       }).then(() => refreshAdminDetail(id)).catch((err) => {
-        console.error("Admin skin give failed:", err);
+        console.error("Admin rebirth remove failed:", err);
         alert("Failed to save: " + err.message);
       });
     });
+
     document.getElementById("adminResetFull").addEventListener("click", () => {
       if (!confirm("Reset this player's score, level and rebirths to 0?")) return;
-      db.ref("leaderboard/" + id).update({ score: 0, ppc: 1, level: 0, rebirths: 0 })
+      db.ref("leaderboard/" + id).update({ score: 0, record: 0, ppc: 1, level: 0, rebirths: 0 })
         .then(() => refreshAdminDetail(id))
         .catch((err) => {
           console.error("Admin reset failed:", err);
@@ -1340,6 +1382,7 @@
         });
     });
   }
+
   function refreshAdminDetail(id) {
     db.ref("leaderboard/" + id).once("value").then((snap) => {
       const data = snap.val() || {};
@@ -1348,12 +1391,7 @@
       renderAdminDetail(id);
     }).catch((err) => console.error("Admin detail refresh failed:", err));
   }
-  function findUserByQuery(raw) {
-    const directMatch = adminEntries.find((e) => e.id === raw);
-    if (directMatch) return directMatch;
-    const needle = raw.replace(/^@/, "").toLowerCase();
-    return adminEntries.find((e) => (e.name || "").replace(/^@/, "").toLowerCase() === needle) || null;
-  }
+
   function setupAdminPanel() {
     if (!isAdmin) return;
     adminToggle.style.display = "flex";
@@ -1368,19 +1406,33 @@
       if (e.target === adminOverlay) adminOverlay.style.display = "none";
     });
     adminBackBtn.addEventListener("click", renderAdminList);
+
     adminSearchApply.addEventListener("click", () => {
       const raw = adminSearchTarget.value.trim();
       const amount = parseInt(adminSearchAmount.value, 10);
       if (!raw || !Number.isFinite(amount) || amount === 0) return;
-      const user = findUserByQuery(raw);
-      if (!user) {
-        alert("Player not found. They must open the game at least once.");
+
+      const directMatch = adminEntries.find((e) => e.id === raw);
+      let targetId = directMatch ? directMatch.id : null;
+
+      if (!targetId) {
+        const needle = raw.replace(/^@/, "").toLowerCase();
+        const nameMatch = adminEntries.find(
+          (e) => (e.name || "").replace(/^@/, "").toLowerCase() === needle
+        );
+        if (nameMatch) targetId = nameMatch.id;
+      }
+
+      if (!targetId) {
+        alert("Игрок не найден. Он должен хотя бы раз открыть игру, чтобы появиться в базе.");
         return;
       }
-      db.ref("leaderboard/" + user.id).once("value").then((snap) => {
+
+      db.ref("leaderboard/" + targetId).once("value").then((snap) => {
         const data = snap.val() || {};
         const newScore = Math.max(0, (data.score || 0) + amount);
-        return db.ref("leaderboard/" + user.id).update({ score: newScore });
+        const newRecord = Math.max(data.record || 0, newScore);
+        return db.ref("leaderboard/" + targetId).update({ score: newScore, record: newRecord });
       }).then(() => {
         adminSearchTarget.value = "";
         adminSearchAmount.value = "";
@@ -1390,54 +1442,8 @@
         alert("Failed to save: " + err.message);
       });
     });
-    adminRebirthApply.addEventListener("click", () => {
-      const raw = adminRebirthTarget.value.trim();
-      const amount = parseInt(adminRebirthAmount.value, 10);
-      if (!raw || !Number.isFinite(amount) || amount === 0) return;
-      const user = findUserByQuery(raw);
-      if (!user) {
-        alert("Player not found. They must open the game at least once.");
-        return;
-      }
-      db.ref("leaderboard/" + user.id).once("value").then((snap) => {
-        const data = snap.val() || {};
-        const newRebirths = Math.max(0, (data.rebirths || 0) + amount);
-        return db.ref("leaderboard/" + user.id).update({ rebirths: newRebirths });
-      }).then(() => {
-        adminRebirthTarget.value = "";
-        adminRebirthAmount.value = "";
-        loadAdminList();
-      }).catch((err) => {
-        console.error("Admin rebirth give failed:", err);
-        alert("Failed to save: " + err.message);
-      });
-    });
-    adminSkinApply.addEventListener("click", () => {
-      const raw = adminSkinTarget.value.trim();
-      const skinId = adminSkinSelect.value;
-      if (!raw) return;
-      const user = findUserByQuery(raw);
-      if (!user) {
-        alert("Player not found. They must open the game at least once.");
-        return;
-      }
-      db.ref("leaderboard/" + user.id).once("value").then((snap) => {
-        const data = snap.val() || {};
-        let skins = data.skins || ["default"];
-        if (!Array.isArray(skins)) skins = ["default"];
-        if (!skins.includes(skinId)) {
-          skins.push(skinId);
-        }
-        return db.ref("leaderboard/" + user.id).update({ skins: skins });
-      }).then(() => {
-        adminSkinTarget.value = "";
-        loadAdminList();
-      }).catch((err) => {
-        console.error("Admin skin give failed:", err);
-        alert("Failed to save: " + err.message);
-      });
-    });
   }
+
   function setupAboutPanel() {
     aboutToggle.addEventListener("click", () => {
       aboutOverlay.style.display = "flex";
@@ -1448,6 +1454,7 @@
     aboutOverlay.addEventListener("click", (e) => {
       if (e.target === aboutOverlay) aboutOverlay.style.display = "none";
     });
+
     if (tg && tg.openLink) {
       const tiktokLink = document.getElementById("aboutTiktok");
       const youtubeLink = document.getElementById("aboutYoutube");
@@ -1466,17 +1473,20 @@
       });
     }
   }
+
   function applyVolumeUI() {
     const pct = Math.round(masterVolume * 100);
     volumeBarFill.style.width = pct + "%";
     volumeValueLabel.textContent = pct + "%";
     settingsToggle.textContent = masterVolume <= 0 ? "🔇" : "🔊";
   }
+
   function setVolume(v) {
     masterVolume = Math.min(1, Math.max(0, Math.round(v * 100) / 100));
     localStorage.setItem("mahy_volume", masterVolume);
     applyVolumeUI();
   }
+
   function setupSettingsPanel() {
     applyVolumeUI();
     settingsToggle.addEventListener("click", () => {
@@ -1491,23 +1501,12 @@
     volumeDown.addEventListener("click", () => setVolume(masterVolume - 0.1));
     volumeUp.addEventListener("click", () => setVolume(masterVolume + 0.1));
   }
-  function setupSkinPanel() {
-    skinToggle.addEventListener("click", () => {
-      renderSkinGrid();
-      skinOverlay.style.display = "flex";
-    });
-    skinClose.addEventListener("click", () => {
-      skinOverlay.style.display = "none";
-    });
-    skinOverlay.addEventListener("click", (e) => {
-      if (e.target === skinOverlay) skinOverlay.style.display = "none";
-    });
-  }
+
   setupAccountBox();
   setupAdminPanel();
   setupAboutPanel();
   setupSettingsPanel();
-  setupSkinPanel();
+
   listenToLeaderboard();
   initPlayer();
 </script>
